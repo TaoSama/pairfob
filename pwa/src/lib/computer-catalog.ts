@@ -15,6 +15,8 @@ export function credentialIsBurned(code: string | undefined): boolean {
 }
 
 export function computerTitle(pair: PairResult): string {
+  const label = pair.label?.trim();
+  if (label) return label;
   const host = pair.hostname?.trim();
   return host || t("computer.unnamed");
 }

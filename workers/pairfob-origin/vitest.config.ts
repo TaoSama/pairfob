@@ -10,6 +10,7 @@ export default defineConfig({
       miniflare: {
         bindings: {
           OPERATOR_TOKEN: "dev-operator",
+          BOOTSTRAP_SERVICE_TOKEN: "dev-bootstrap-service",
           IP_HASH_PEPPER: "dev-pepper-not-for-prod",
           BUILD: "test",
           INTENT_PAD_MS: "0",

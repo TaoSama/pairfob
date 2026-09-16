@@ -32,4 +32,13 @@ export const ROOM_DDL = [
     pair_ref TEXT
   )`,
   `INSERT OR IGNORE INTO _sql_schema_migrations (id, applied_at) VALUES (1, 0)`,
+  // Gate attempt ledger. Timestamp and outcome only: the relay never sees the
+  // passphrase, so nothing that could identify a guess or a guesser is stored.
+  `CREATE TABLE IF NOT EXISTS gate_attempts (
+    id INTEGER PRIMARY KEY,
+    at INTEGER NOT NULL,
+    ok INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_gate_attempts_at ON gate_attempts (at)`,
+  `INSERT OR IGNORE INTO _sql_schema_migrations (id, applied_at) VALUES (2, 0)`,
 ] as const;

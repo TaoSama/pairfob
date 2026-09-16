@@ -12,6 +12,10 @@ export interface Attachment {
   hello_at_ms: number;
   pair_ref: string;
   pair_frames: number;
+  /** Account behind the socket, empty when the caller was not signed in. */
+  account: string;
+  /** Account owning this computer, empty while nobody has bound it. */
+  owner: string;
 }
 
 export function newAttachment(
@@ -29,6 +33,8 @@ export function newAttachment(
     hello_at_ms: 0,
     pair_ref: "",
     pair_frames: 0,
+    account: "",
+    owner: "",
     ...extra,
   };
 }
@@ -50,7 +56,19 @@ export function readAttachment(raw: unknown): Attachment | null {
     hello_at_ms: typeof o.hello_at_ms === "number" ? o.hello_at_ms : 0,
     pair_ref: typeof o.pair_ref === "string" ? o.pair_ref : "",
     pair_frames: typeof o.pair_frames === "number" ? o.pair_frames : 0,
+    account: typeof o.account === "string" ? o.account : "",
+    owner: typeof o.owner === "string" ? o.owner : "",
   };
+}
+
+/**
+ * A phone may reach a computer nobody has bound yet, since that is how the
+ * first pairing happens, but a bound computer answers only to its owner.
+ */
+export function ownerMismatch(att: Attachment): boolean {
+  if (att.role !== "phone") return false;
+  if (att.owner === "") return false;
+  return att.account === "" || att.account !== att.owner;
 }
 
 export function isRegisteredDaemon(att: Attachment | null): boolean {

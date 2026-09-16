@@ -6,7 +6,7 @@
   "workers_dev": false,
   "preview_urls": false,
   "vars": {
-    "BUILD": "2026-09-11.3",
+    "BUILD": "2026-09-16.accounts.2",
     "P2P_OPEN": "1"
   },
   "observability": {
@@ -22,14 +22,16 @@
     { "binding": "METRICS", "dataset": "pairfob" }
   ],
   "routes": [
-    { "pattern": "pairfob.com", "custom_domain": true },
-    { "pattern": "www.pairfob.com", "custom_domain": true }
+    { "pattern": "pair.taoai.site", "custom_domain": true }
   ],
   "d1_databases": [
     {
+      // Placeholder. The database id is account-specific and must not be
+      // committed: `scripts/deploy-origin.sh` substitutes the real one from
+      // PAIRFOB_D1_DATABASE_ID into an untracked wrangler.deploy.jsonc.
       "binding": "DB",
       "database_name": "pairfob",
-      "database_id": "bcdc6770-16be-4256-ba7a-1a20decfff12",
+      "database_id": "00000000-0000-0000-0000-000000000000",
       "migrations_dir": "migrations"
     }
   ],

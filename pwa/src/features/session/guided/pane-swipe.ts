@@ -65,7 +65,7 @@ export function initSwipeBack(goBack: () => void): () => void {
   const current = (owner: Swipe) => !retired && phase() === "live" && currentScreen() === "pane"
     && !isDesk() && liveSession() === owner.session && openPaneId() === owner.paneId
     && currentViewIncarnation() === owner.incarnation && boardReturn() === owner.boardReturn
-    && owner.root.isConnected && app.querySelector(".pane-root") === owner.root;
+    && owner.root.isConnected && (app.querySelector(".pane-root, .full-terminal-root") === owner.root);
 
   const restoreRoot = (owner: Swipe) => {
     owner.root.classList.remove("edge-armed", "dragging", "settling");
@@ -107,7 +107,7 @@ export function initSwipeBack(goBack: () => void): () => void {
     if ((event.target as Element | null)?.closest?.(".full-terminal-pan")) return;
     const touch = event.touches[0];
     if (touch.clientX > EDGE_PX) return;
-    const root = app.querySelector<HTMLElement>(".pane-root");
+    const root = app.querySelector<HTMLElement>(".pane-root, .full-terminal-root");
     if (!root) return;
     swipe = { root, session: liveSession(), paneId: openPaneId(), incarnation: currentViewIncarnation(),
       boardReturn: boardReturn(), touchId: touch.identifier, startX: touch.clientX, startY: touch.clientY,

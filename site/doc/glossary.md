@@ -17,7 +17,7 @@ description: What Herdr, pane, pairfob, and locator mean in Pairfob.
 | pairing code | 8 glyphs, secret |
 | locator | 6 glyphs, only finds that computer, not the same class of secret |
 | Computer confirm | After the other device proves the code, one Enter on the computer admits it |
-| relay | `pairfob.com`, this project's official instance. Forwards ciphertext, does not read the session. The session stays here when a direct path is unavailable |
+| relay | `pair.taoai.site`, this project's official instance. Forwards ciphertext, does not read the session. The session stays here when a direct path is unavailable |
 | P2P | A direct path between the phone and the computer. The session stays encrypted. Falls back to relay when a direct path cannot be found |
 | Network path | **Auto** / **P2P** / **Relay** in Settings. Auto prefers a direct path; P2P tries one now; Relay uses the relay only |
 | PWA | The Pairfob page in the browser; can be added to the Home Screen. Path `/pair` |

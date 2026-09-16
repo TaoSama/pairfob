@@ -116,7 +116,7 @@ export function messageOf(error: unknown, context: "mutation" | "read" = "mutati
 
 /** Live session chrome copy. Never surfaces mux ERROR.message. */
 export function sessionEventNotice(event: { type: string; code?: string; message?: string }): string {
-  if (event.type === "connected" || event.type === "poke") return "";
+  if (event.type === "connected" || event.type === "poke" || event.code === "kicked") return "";
   const mapped = event.code ? errorCopy(event.code) : undefined;
   if (mapped) return mapped;
   if (event.type === "reconnecting") return t("err.reconnecting");

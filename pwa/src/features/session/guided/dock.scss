@@ -153,10 +153,15 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
   height: 46px;
   margin: 0;
   padding: 10px 14px;
-  background: #0a0d12;
+  background-color: #0a0d12 !important;
+  background: #0a0d12 !important;
   border: 1px solid var(--line-strong);
   border-radius: 13px;
-  color: var(--term-ink);
+  color: var(--term-ink) !important;
+  color-scheme: dark;
+  -webkit-appearance: none;
+  appearance: none;
+  background-clip: padding-box;
   font-size: 16px;
   font-family: var(--font);
   font-weight: 400;

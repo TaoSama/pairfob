@@ -31,6 +31,7 @@ import { ListGroupControl } from "../../features/dashboard/components/herd-contr
 import { BackBar, Button, EmptyState, Feedback, SetHeading, SetNavRow, SetRow } from "../../shared/ui/primitives";
 import { LanguageControl } from "../../features/settings/language";
 import { DaemonUpdate } from "../../features/settings/daemon-update-view";
+import { InviteCodeSection } from "./invite-code-section";
 import { settingsNetworkHelp, settingsNetworkP2PFail, settingsNetworkPath } from "../../features/settings/model";
 
 const NETWORK_MODE_COPY: Record<NetworkMode, "settings.networkAuto" | "settings.networkP2P" | "settings.networkRelay"> = {
@@ -283,6 +284,7 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
       </div>
       {runtime.pushConfigError ? <Feedback value={{ text: runtime.pushConfigError, tone: "error" }} /> : null}
       <DevicesSection runtime={runtime} connected={connected} />
+      <InviteCodeSection />
       <SetHeading text={t("settings.danger")} />
       <div className="set-card">
         <div className="set-row set-row-stack">

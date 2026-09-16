@@ -46,7 +46,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## 支持 Windows 吗？
 
-还不能在 Windows 上装 `pairfob`。另一台 Windows 电脑可以用浏览器打开 <a href="/pair">pairfob.com/pair</a> 当「第二块屏幕」，宿主仍然必须是 macOS 或 Linux。
+还不能在 Windows 上装 `pairfob`。另一台 Windows 电脑可以用浏览器打开 <a href="/pair">pair.taoai.site/pair</a> 当「第二块屏幕」，宿主仍然必须是 macOS 或 Linux。
 
 ## 要不要 Tailscale / 端口转发？
 
@@ -54,7 +54,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## 中继能看到我的代码吗？
 
-看不到会话画面、你打的字和对话内容。走 P2P 直连时，pairfob.com 同样看不到会话；用来尝试直连的公网地址查询会看到这台设备的公网地址。见 [中继看不到什么](/zh/security)。
+看不到会话画面、你打的字和对话内容。走 P2P 直连时，pair.taoai.site 同样看不到会话；用来尝试直连的公网地址查询会看到这台设备的公网地址。见 [中继看不到什么](/zh/security)。
 
 ## P2P 直连失败了怎么办？
 
@@ -82,7 +82,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## 安装命令能在第二台电脑再用吗？
 
-能。每台电脑各自跑 `curl -fsSL https://pairfob.com/install.sh | sh`。然后在手机上：**设置 → 添加另一台电脑**。更新用 `pairfob update`。
+能。每台电脑各自跑 `curl -fsSL https://pair.taoai.site/install.sh | sh`。然后在手机上：**设置 → 添加另一台电脑**。更新用 `pairfob update`。
 
 ## 安装时登记失败？
 
@@ -110,7 +110,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## 收费吗？
 
-不收费。源码是 Apache-2.0，在 <https://github.com/arronKler/pairfob>。`https://pairfob.com` 是本项目的官方实例：网页和你登记用的中转都在这里。没有账号，也不承诺容量。
+不收费。源码是 Apache-2.0，在 <https://github.com/arronKler/pairfob>。`https://pair.taoai.site` 是本项目的官方实例：网页和你登记用的中转都在这里。没有账号，也不承诺容量。
 
 ## 文档只有中文吗？
 

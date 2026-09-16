@@ -45,7 +45,11 @@ type Device struct {
 }
 
 type pairingSlot struct {
-	ref, code       string
+	ref, code string
+	// persistent marks a slot backed by the stored passphrase gate rather than
+	// a one-use code. Such a slot self-authorizes on a valid proof and survives
+	// failed attempts, so a wrong guess cannot lock out every other phone.
+	persistent      bool
 	record          spake2plus.Record
 	expiresAt       time.Time
 	expiry          *time.Timer
@@ -173,6 +177,12 @@ type Engine struct {
 	helloByDevice map[string][]time.Time
 	pushLast      map[string]time.Time
 	pushSem       chan struct{}
+
+	// Guess ledger for the passphrase gate. Unlike a one-use code the gate is
+	// never burned, so this backoff is the only thing bounding an online
+	// dictionary attack on the daemon side.
+	gateFailures      []time.Time
+	gateCooldownUntil time.Time
 
 	AutoAdmit  bool // explicit development/test injection
 	Banner     io.Writer
@@ -515,20 +525,33 @@ func (e *Engine) handleRelayError(f envelope.Frame) {
 		e.mu.Unlock()
 		return
 	}
+	// The relay expires a pairing slot on its own alarm, independently of the
+	// daemon's TTL timer. For a one-use code that is the end of it, but the
+	// passphrase gate has to outlive its slot: without this the gate would go
+	// dark a few minutes after startup and every later phone would be told
+	// there is nothing to attach to.
+	reopenGate := pair.persistent
 	e.burnPairLocked(pair)
 	e.mu.Unlock()
 	if e.Banner != nil {
 		_, _ = fmt.Fprintf(e.Banner, "Pairing closed: %s\n", body.Code)
 	}
 	e.audit(body.Code, map[string]any{"pair_ref": body.PairRef})
+	if reopenGate {
+		e.reopenPasswordGate()
+	}
 }
 
 func (e *Engine) handleFWD(f envelope.Frame) {
 	e.mu.Lock()
 	pair := e.pair
 	s := e.sessions[f.RouteID]
+	// pair.closed and pair.routeID are both guarded by e.mu and a concurrent
+	// PAIR_ATTACHED rewrites the route in place, so the match has to be decided
+	// here rather than after the unlock.
+	pairMatch := pair != nil && !pair.closed && f.RouteID == pair.routeID
 	e.mu.Unlock()
-	if pair != nil && !pair.closed && f.RouteID == pair.routeID {
+	if pairMatch {
 		e.handlePairFWD(f, pair)
 		return
 	}

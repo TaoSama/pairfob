@@ -6,7 +6,7 @@ import type { AnalyticsSink } from "../metrics.ts";
 import { RoomCore } from "../room/core.ts";
 import { FakeSocket, FakeSocketView } from "../room/fake-socket.ts";
 import { MemoryStore } from "../room/memory-store.ts";
-import type { PairIndexClient } from "../room/types.ts";
+import type { ClaimWitness, PairIndexClient } from "../room/types.ts";
 import { FakeD1 } from "./fake-d1.ts";
 import { FakeIndexNamespace, FakeRoomNamespace } from "./fake-ns.ts";
 
@@ -26,7 +26,7 @@ export function asIndexClient(core: IndexCore): PairIndexClient {
 export function makeRoom(
   daemonId = "d_" + "ab".repeat(10),
   index?: IndexCore,
-  options?: { freshSocketViews?: boolean },
+  options?: { freshSocketViews?: boolean; claims?: ClaimWitness },
 ) {
   const sockets: FakeSocket[] = [];
   const store = new MemoryStore();
@@ -47,10 +47,15 @@ export function makeRoom(
         .filter((s) => !s.closed)
         .map((s) => (options?.freshSocketViews ? new FakeSocketView(s) : s)),
     index: asIndexClient(idx),
+    claims: options?.claims,
   });
 
-  function accept(role: "daemon" | "phone", params = new URLSearchParams()): { ok: true; ws: FakeSocket } | { ok: false; ws: null } {
-    const r = core.consumeUpgrade(params, role);
+  function accept(
+    role: "daemon" | "phone",
+    params = new URLSearchParams(),
+    access?: { account: string; owner: string },
+  ): { ok: true; ws: FakeSocket } | { ok: false; ws: null } {
+    const r = core.consumeUpgrade(params, role, access);
     if (!r.ok) return { ok: false, ws: null };
     const ws = new FakeSocket(role + String(sockets.length));
     ws.serializeAttachment(r.attachment);
@@ -125,6 +130,7 @@ export function testEnv(opts?: {
     PAIRING_INDEX: index,
     METRICS: opts?.metrics ?? new FakeMetrics(),
     OPERATOR_TOKEN: "dev-operator",
+    BOOTSTRAP_SERVICE_TOKEN: "dev-bootstrap-service",
     IP_HASH_PEPPER: "dev-pepper-not-for-prod",
     BUILD: "test",
     INTENT_PAD_MS: "0",

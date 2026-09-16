@@ -5,6 +5,9 @@ export const LIMITS = {
   intentIP: { n: 10, windowMs: 10 * 60 * 1000 },
   sessionIP: { n: 60, windowMs: 60 * 1000 },
   eventsIP: { n: 60, windowMs: 60 * 1000 },
+  // Covers reads such as the signed-in state poll as well as credential posts;
+  // the brute-force ceiling is the D1 lockout ledger, not this bucket.
+  authIP: { n: 120, windowMs: 10 * 60 * 1000 },
 } as const;
 
 export function allow(key: string, limit: number, windowMs: number, now: number): boolean {
@@ -36,4 +39,8 @@ export function allowSessionIP(ip: string, now: number): boolean {
 
 export function allowEventsIP(ip: string, now: number): boolean {
   return allow(`events-ip:${ip}`, LIMITS.eventsIP.n, LIMITS.eventsIP.windowMs, now);
+}
+
+export function allowAuthIP(ip: string, now: number): boolean {
+  return allow(`auth-ip:${ip}`, LIMITS.authIP.n, LIMITS.authIP.windowMs, now);
 }

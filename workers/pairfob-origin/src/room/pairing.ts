@@ -2,6 +2,7 @@ import {
   DEFAULT_TTL_MS,
   HELLO_GRACE_MS,
   LOC_MINT_TRIES,
+  MAX_PAIRING,
   MAX_TTL_S,
   MIN_TTL_S,
   PAIR_REF_RE,
@@ -12,6 +13,7 @@ import { mintLoc } from "../crockford.ts";
 import { Typ, type Frame } from "../envelope.ts";
 import { parseJSONObject, reject, sendErr, sendJSON } from "../frames.ts";
 import { armPairFirst, clearKindRef, schedule } from "./alarms.ts";
+import { ownerMismatch } from "./attachment.ts";
 import type { RoomCore } from "./core.ts";
 import type { RoomSocket } from "./types.ts";
 
@@ -190,6 +192,11 @@ export async function handlePairAttach(room: RoomCore, ws: RoomSocket, frame: Fr
     reject(ws, "unbound", "PAIR_ATTACH on non-phone websocket");
     return;
   }
+  if (ownerMismatch(att)) {
+    sendErr(ws, "forbidden", "device belongs to another account");
+    ws.close(1000, "forbidden");
+    return;
+  }
   if (!att.hello_at_ms || room.now() - att.hello_at_ms > HELLO_GRACE_MS) {
     sendErr(ws, "unbound", "PAIR_ATTACH after HELLO timeout");
     ws.close(1000, "unbound");
@@ -213,10 +220,39 @@ export async function handlePairAttach(room: RoomCore, ws: RoomSocket, frame: Fr
     return;
   }
   const { pairing } = room.countKinds();
-  if (pairing >= 1) {
+  if (pairing >= MAX_PAIRING) {
     sendErr(ws, "pair_busy", "pairing slot already attached");
     return;
   }
+  // Refuse a fresh pairing route while the room is cooling down. Each attach is
+  // one shot at the passphrase, so gating here is what makes the backoff bite:
+  // without it a guesser just reconnects for an unthrottled attempt.
+  const gate = room.gateCheck();
+  if (!gate.allowed) {
+    sendErr(ws, "rate_limited", "too many failed pairing attempts", {
+      retryAfterMs: gate.retryAfterMs,
+    });
+    return;
+  }
+  // Charge the attempt on attach rather than waiting for the daemon's
+  // bad_pair_code. The relay only ever learns of a failure if the guesser
+  // stays connected long enough to be told, and it has no reason to: the
+  // daemon's SPAKE2+ answer is checkable offline, so an attacker reads it and
+  // drops the socket. Measured before this line existed: 25 consecutive
+  // attach-then-hang-up probes were all answered and the ledger held 0 rows.
+  //
+  // The charge is never refunded here, and deliberately so. Refund eligibility
+  // has to be earned by a verified confirm, which is the only thing that tells
+  // an owner from a guesser — and the relay cannot see it, because the confirm
+  // rides inside an AEAD payload it must never open. Refunding on any signal
+  // the relay *can* see (a second pairing frame, say) would hand an attacker a
+  // free cooldown reset for the price of one junk frame. The daemon holds the
+  // key and does the refund there, after the proof verifies
+  // (internal/daemon/pairing.go refundGateAttemptLocked). A room therefore
+  // counts a successful login as one failure, which only makes this coarse
+  // per-room window more conservative; the owner's protection against lockout
+  // lives on the daemon side.
+  room.noteGateAttempt(false);
 
   const rid = newRouteId(room.random.bind(room));
   const hex = routeHex(rid);

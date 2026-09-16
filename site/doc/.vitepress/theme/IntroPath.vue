@@ -17,7 +17,7 @@ const zh = computed(() => lang.value.startsWith("zh"));
 const copy = computed(() =>
   zh.value
     ? {
-        aria: "会话从另一台设备经 pairfob.com 到你的电脑",
+        aria: "会话从另一台设备经 pair.taoai.site 到你的电脑",
         nodes: [
           {
             k: "设备",
@@ -27,7 +27,7 @@ const copy = computed(() =>
           },
           {
             k: "中转",
-            title: "pairfob.com",
+            title: "pair.taoai.site",
             detail: "只转发密文。不看内容，不跑 agent。",
             hop: "密文",
             relay: true,
@@ -41,7 +41,7 @@ const copy = computed(() =>
         ],
       }
     : {
-        aria: "A session travels from another device through pairfob.com to your computer",
+        aria: "A session travels from another device through pair.taoai.site to your computer",
         nodes: [
           {
             k: "Device",
@@ -51,7 +51,7 @@ const copy = computed(() =>
           },
           {
             k: "Relay",
-            title: "pairfob.com",
+            title: "pair.taoai.site",
             detail: "Forwards ciphertext. Does not read content or run agents.",
             hop: "ciphertext",
             relay: true,

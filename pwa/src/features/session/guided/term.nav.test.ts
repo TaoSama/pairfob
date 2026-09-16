@@ -134,18 +134,12 @@ describe("guided pane no longer overlays earlier output", () => {
     }
   });
 
-  test("the live buffer has no 更早的输出 chip", () => {
+  test("the live buffer has no 更早的输出 chip and no floating scroll rail", () => {
     bootGuided();
     expect(app.querySelector(".term-more")).toBeNull();
     expect(app.querySelector(".term-back")).toBeNull();
     expect(app.querySelector(".term")).toBeTruthy();
-    expect(app.querySelector(".full-terminal-scroll")).toBeTruthy();
-    expect([...app.querySelectorAll(".full-terminal-scroll-btn")].map((el) => el.getAttribute("aria-label"))).toEqual([
-      "鼠标滚轮向上",
-      "上一页",
-      "下一页",
-      "鼠标滚轮向下",
-    ]);
+    expect(app.querySelector(".full-terminal-scroll")).toBeNull();
   });
 
   test("会话操作 has no 更早的输出 even when history is allowed", () => {
@@ -174,85 +168,5 @@ describe("interrupt while unverifiable", () => {
       commitView();
     });
     expect(app.querySelector(".icon-stop")).toBeNull();
-  });
-});
-
-describe("control-mode TUI page rail", () => {
-  test("outer arrows send mouse-wheel TerminalScroll instead of cursor keys", async () => {
-    bootGuided();
-    const scrolls: Array<Record<string, unknown>> = [];
-    const keys: string[][] = [];
-    const session = live();
-    act(() => {
-      attachLiveSession({
-        ...session,
-        sendKeys: async (_paneId, batch) => {
-          keys.push(batch);
-        },
-        terminalOpen: async (paneId, cols, rows) => ({
-          operationId: "op_open",
-          terminalId: "term_00000000000000000000000000000000",
-          paneId,
-          cols,
-          rows,
-          encoding: "ansi" as const,
-        }),
-        terminalScroll: async (terminalId, sequence, direction, lines, source) => {
-          scrolls.push({ terminalId, sequence, direction, lines, source });
-        },
-        terminalClose: async () => undefined,
-      } as LiveSession);
-      commitView();
-    });
-    const rail = [...app.querySelectorAll(".full-terminal-scroll-btn")] as HTMLButtonElement[];
-    const wheelUp = rail.find((el) => el.getAttribute("aria-label") === "鼠标滚轮向上");
-    const wheelDown = rail.find((el) => el.getAttribute("aria-label") === "鼠标滚轮向下");
-    if (!wheelUp || !wheelDown) throw new Error("missing wheel buttons");
-    const tap = () =>
-      new PointerEvent("pointerdown", { pointerId: 1, isPrimary: true, button: 0, bubbles: true, cancelable: true });
-    await act(async () => {
-      wheelUp.dispatchEvent(tap());
-      wheelDown.dispatchEvent(tap());
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-
-    expect(scrolls).toEqual([
-      { terminalId: "term_00000000000000000000000000000000", sequence: 1, direction: "up", lines: 3, source: "wheel" },
-      { terminalId: "term_00000000000000000000000000000000", sequence: 2, direction: "down", lines: 3, source: "wheel" },
-    ]);
-    expect(keys).toEqual([]);
-  });
-
-  test("上一页 / 下一页 write CSI into the PTY, not SendKeys pageup", async () => {
-    bootGuided();
-    const texts: string[] = [];
-    const keys: string[][] = [];
-    const session = live();
-    act(() => {
-      attachLiveSession({
-        ...session,
-        sendText: async (_paneId, text) => {
-          texts.push(text);
-        },
-        sendKeys: async (_paneId, batch) => {
-          keys.push(batch);
-        },
-        paneRead: async () => ({ text: "ready", hash: "h" }),
-      } as LiveSession);
-      commitView();
-    });
-    const rail = [...app.querySelectorAll(".full-terminal-scroll-btn")] as HTMLButtonElement[];
-    const pageUp = rail.find((el) => el.getAttribute("aria-label") === "上一页");
-    const pageDown = rail.find((el) => el.getAttribute("aria-label") === "下一页");
-    if (!pageUp || !pageDown) throw new Error("missing page buttons");
-    const tap = () =>
-      new PointerEvent("pointerdown", { pointerId: 1, isPrimary: true, button: 0, bubbles: true, cancelable: true });
-    await act(async () => {
-      pageUp.dispatchEvent(tap());
-      pageDown.dispatchEvent(tap());
-      await new Promise((resolve) => setTimeout(resolve, 20));
-    });
-    expect(texts).toEqual(["\u001b[5~", "\u001b[6~"]);
-    expect(keys).toEqual([]);
   });
 });

@@ -12,6 +12,9 @@ import (
 const commandUsage = `Pairfob — this computer, on another device.
 
   pairfob pair              Pair a phone, tablet, or another computer
+  pairfob gate set          Set a pairing passphrase any device can use
+  pairfob gate status       Whether a pairing passphrase is set
+  pairfob gate clear        Remove the pairing passphrase
   pairfob list              What's paired
   pairfob forget N          Unpair
   pairfob update            Install the latest version
@@ -41,6 +44,8 @@ func runCommand(args []string, sock string) error {
 		return enrollCommand(args[1:], sock)
 	case "pair":
 		return pairCommand(args[1:], sock)
+	case "gate":
+		return gateCommand(args[1:], sock)
 	case "list":
 		return printPhones(sock)
 	case "forget", "unpair":

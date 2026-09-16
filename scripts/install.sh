@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install pairfob from https://pairfob.com/dl (or $PAIRFOB_DOWNLOAD_BASE).
+# Install pairfob from https://pair.taoai.site/dl (or $PAIRFOB_DOWNLOAD_BASE).
 set -eu
 
 usage() {
@@ -7,25 +7,25 @@ usage() {
 usage: install.sh [--origin URL] [--prefix DIR] [--no-service] [--no-enroll] [--install-herdr] [--non-interactive] [--skip-herdr-check]
 
 Downloads the pairfob binary for this machine, verifies SHA-256, enrolls
-against pairfob.com (or --origin), and installs a user-level service that
+against pair.taoai.site (or --origin), and installs a user-level service that
 starts at login.
 
   --install-herdr     Install pinned Herdr if missing (no prompt)
   --non-interactive   Never prompt; missing Herdr fails unless --install-herdr
   --skip-herdr-check  Install Pairfob only; does not claim session readiness
 
-  curl -fsSL https://pairfob.com/install.sh | sh
+  curl -fsSL https://pair.taoai.site/install.sh | sh
 EOF
 }
 
-ORIGIN=""
+ORIGIN="${PAIRFOB_ORIGIN:-https://pair.taoai.site}"
 PREFIX="${PAIRFOB_INSTALL_PREFIX:-}"
 NO_SERVICE=0
 NO_ENROLL=0
 INSTALL_HERDR=0
 NON_INTERACTIVE=0
 SKIP_HERDR_CHECK=0
-BASE="${PAIRFOB_DOWNLOAD_BASE:-https://pairfob.com/dl}"
+BASE="${PAIRFOB_DOWNLOAD_BASE:-https://pair.taoai.site/dl}"
 BASE="${BASE%/}"
 
 while [ "$#" -gt 0 ]; do
@@ -220,5 +220,5 @@ if [ "$SKIP_HERDR_CHECK" -eq 1 ] || [ "$NO_SERVICE" -eq 1 ]; then
 fi
 
 echo "On this computer:     pairfob pair"
-echo "On the other device:  https://pairfob.com/pair"
+echo "On the other device:  https://pair.taoai.site/pair"
 echo "Scan or type the code, then press Enter here."

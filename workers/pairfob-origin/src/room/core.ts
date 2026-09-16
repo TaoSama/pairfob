@@ -3,8 +3,16 @@ import { bytesToHex, sha256Hex, timingSafeEqual } from "../crypto.ts";
 import { Typ } from "../envelope.ts";
 import { encodeJSON, sendErr } from "../frames.ts";
 import { harvestDue, syncHeapAlarm } from "./alarms.ts";
+import { asGateStore, GateThrottle, type GateDecision, type RoomStoreSatisfiesGatePort } from "./gate-throttle.ts";
 import { isRegisteredDaemon, needsConstructorSql, newAttachment, readAttachment, type Attachment } from "./attachment.ts";
 import type { PairIndexClient, RoomDeps, RoomSocket, RoomStore } from "./types.ts";
+
+/**
+ * Fails to compile if RoomStore's ledger methods drift from the throttle's
+ * port. Without it the mismatch is silent: asGateStore() returns null and the
+ * gate stops throttling with nothing to signal it.
+ */
+export type GatePortCheck = RoomStoreSatisfiesGatePort<RoomStore>;
 
 export interface UpgradeOk {
   ok: true;
@@ -33,6 +41,8 @@ export class RoomCore {
   alarmLateMaxMs = 0;
   alarmLateCount = 0;
   private pairingTail: Promise<void> = Promise.resolve();
+  /** Lazily bound: the store gains the ledger methods with migration id=2. */
+  private gateThrottleCache: GateThrottle | null | undefined;
   /** Ephemeral hot-path index; WebSocket attachments remain the hibernation authority. */
   private readonly routes = new Map<string, RouteTarget>();
 
@@ -220,25 +230,79 @@ export class RoomCore {
     this.daemon = null;
   }
 
+  /**
+   * Throttle guarding the low-entropy passphrase gate, or null when the store
+   * has no attempt ledger. State lives entirely in SQLite, so this rebinds
+   * transparently after a hibernation cold start.
+   */
+  get gateThrottle(): GateThrottle | null {
+    if (this.gateThrottleCache === undefined) {
+      const port = asGateStore(this.store);
+      this.gateThrottleCache = port ? new GateThrottle(port) : null;
+    }
+    return this.gateThrottleCache;
+  }
+
+  /**
+   * Refuse gate traffic while the room is cooling down, so guesses never reach
+   * the daemon. Read-only, and a no-op when no ledger is available.
+   */
+  gateAllowed(): boolean {
+    return this.gateThrottle?.check(this.now()).allowed ?? true;
+  }
+
+  /** Record the outcome of an attempt that was actually evaluated. */
+  noteGateAttempt(ok: boolean): void {
+    this.gateThrottle?.record(this.now(), ok);
+  }
+
+  /**
+   * Full throttle verdict, including how long the caller must wait. Rooms with
+   * no ledger are always allowed, so a store without the id=2 migration keeps
+   * pairing working rather than failing closed.
+   */
+  gateCheck(): GateDecision {
+    return this.gateThrottle?.check(this.now()) ?? { allowed: true, retryAfterMs: 0 };
+  }
+
   async issueTicket(pairLoc: string): Promise<{ ok: true; pair_ticket: string; pair_ref: string } | { ok: false }> {
+    // A room in cooldown issues nothing.
+    if (!this.gateAllowed()) return { ok: false };
     const slot = this.store.loadSlot();
     const now = this.now();
-    if (!slot || slot.pair_loc !== pairLoc || slot.deadline <= now) return { ok: false };
+    if (!slot || slot.pair_loc !== pairLoc || slot.deadline <= now) {
+      // A miss here is a guess at the pairing location.
+      this.noteGateAttempt(false);
+      return { ok: false };
+    }
     const pair_ticket = bytesToHex(this.random(16));
     this.store.insertTicket({ ticket: pair_ticket, pair_ref: slot.pair_ref, deadline: now + TICKET_MS });
     this.store.upsertAlarm("ticket_15s", pair_ticket, now + TICKET_MS);
     await syncHeapAlarm(this.store);
+    this.noteGateAttempt(true);
     return { ok: true, pair_ticket, pair_ref: slot.pair_ref };
   }
 
-  consumeUpgrade(params: URLSearchParams, role: string): UpgradeOk | UpgradeFail {
+  consumeUpgrade(params: URLSearchParams, role: string, access?: { account: string; owner: string }): UpgradeOk | UpgradeFail {
     const ticket = params.get("pair_ticket");
     if (ticket !== null && ticket !== "") {
-      if (!TICKET_RE.test(ticket) || role !== "client") return { ok: false };
+      // Ticket presentation is a gate attempt.
+      if (!this.gateAllowed()) return { ok: false };
+      if (!TICKET_RE.test(ticket) || role !== "client") {
+        this.noteGateAttempt(false);
+        return { ok: false };
+      }
       const row = this.store.consumeTicket(ticket, this.now());
-      if (!row) return { ok: false };
+      if (!row) {
+        this.noteGateAttempt(false);
+        return { ok: false };
+      }
+      this.noteGateAttempt(true);
     }
-    const att = newAttachment(role === "daemon" ? "daemon" : "phone", this.now());
+    const att = newAttachment(role === "daemon" ? "daemon" : "phone", this.now(), {
+      account: access?.account ?? "",
+      owner: access?.owner ?? "",
+    });
     return { ok: true, attachment: att, tags: [att.role, att.kind] };
   }
 

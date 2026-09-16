@@ -83,7 +83,6 @@ describe("complete-terminal chrome stays a distinct surface", () => {
     const host = await Bun.file(new URL("./full-terminal-host.tsx", import.meta.url)).text();
     expect(host).toContain("full-terminal-pan");
     expect(host).toContain("full-terminal-canvas");
-    expect(host).toContain("SessionScrollRail");
     expect(host).toContain("FullTerminalStateLayer");
     expect(fitController).toContain("displayGrid");
     expect(fitController).toContain("remoteGrid");

@@ -64,6 +64,16 @@
   /* Author display rules must never override the platform's hidden contract. */
   [hidden] { display: none !important; }
 
+  input,
+  textarea,
+  select {
+    font: inherit;
+    color: inherit;
+    background: transparent;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+
   button,
   input,
   textarea,

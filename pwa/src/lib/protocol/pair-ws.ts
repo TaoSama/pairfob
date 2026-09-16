@@ -1,4 +1,5 @@
 import { validDaemonId, validDeviceId } from "../identifiers.ts";
+import { normalizePassword } from "../pairing-password.ts";
 import { Direction, DIR_C, DIR_S } from "./aead.ts";
 import { b64url, normalizeCrockford } from "./bytes.ts";
 import { decodeUTF8, jsonFrame, parseJSON, Typ, type Frame } from "./envelope.ts";
@@ -45,6 +46,12 @@ export interface PairInput {
   pair_ref?: string;
 }
 
+/**
+ * Which secret the handshake is proving knowledge of. Both feed the same
+ * SPAKE2+ exchange; only the normalization before `deriveRecord` differs.
+ */
+export type PairSecretKind = "code" | "password";
+
 export interface PairOptions {
   onAwaitApproval?: () => void;
   signal?: AbortSignal;
@@ -52,6 +59,8 @@ export interface PairOptions {
   expectedFingerprint?: string;
   label?: string;
   protocol?: MuxProtocol;
+  /** Defaults to the 8-glyph pairing code. */
+  secret?: PairSecretKind;
 }
 
 export function normalizeDeviceLabel(raw: string | undefined): string {
@@ -67,11 +76,29 @@ export function normalizeDeviceLabel(raw: string | undefined): string {
   return result || fallback;
 }
 
-/** Normalize the one operator-visible code before opening any relay socket. */
-export function normalizePairInput(input: PairInput, code: string): { input: PairInput; code: string } {
-  const normalizedCode = normalizeCrockford(code);
-  if (normalizedCode.length !== 8 || !/^[0-9A-HJKMNP-TV-Z]{8}$/.test(normalizedCode)) {
-    throw new ProtocolError("invalid_pair_code", "配对码必须是 8 位 Crockford 字符");
+/**
+ * Normalize the one operator-visible secret before opening any relay socket.
+ *
+ * `secret` selects the rule, because the two inputs are folded differently and
+ * applying the wrong one is silent: a passphrase run through
+ * `normalizeCrockford` would lose its case and its I/L/O/U glyphs, derive a
+ * record the daemon never stored, and surface as a confirm mismatch.
+ */
+export function normalizePairInput(
+  input: PairInput,
+  code: string,
+  secret: PairSecretKind = "code",
+): { input: PairInput; code: string } {
+  let normalizedCode: string;
+  if (secret === "password") {
+    const checked = normalizePassword(code);
+    if (!checked.ok) throw new ProtocolError("invalid_pair_code", "口令长度或字符不符合要求");
+    normalizedCode = checked.password;
+  } else {
+    normalizedCode = normalizeCrockford(code);
+    if (normalizedCode.length !== 8 || !/^[0-9A-HJKMNP-TV-Z]{8}$/.test(normalizedCode)) {
+      throw new ProtocolError("invalid_pair_code", "配对码必须是 8 位 Crockford 字符");
+    }
   }
   const ref = input.pair_ref?.trim().toLowerCase();
   if (ref && !/^[0-9a-f]{32}$/.test(ref)) {
@@ -121,7 +148,7 @@ export async function pairOverWS(
   rawCode: string,
   options: PairOptions,
 ): Promise<PairResult> {
-  const normalized = normalizePairInput(rawInput, rawCode);
+  const normalized = normalizePairInput(rawInput, rawCode, options.secret);
   const label = normalizeDeviceLabel(options.label);
   const origin = relayOrigin(relayWS);
   const protocol = options.protocol ?? muxProtocolFromRelayURL(relayWS);

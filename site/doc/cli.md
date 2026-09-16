@@ -48,7 +48,7 @@ Pairfob <version>
   Running     yes
   Paired      1
   Herdr       ready (0.8.2, protocol 20)
-  Origin      pairfob.com
+  Origin      pair.taoai.site
 ```
 
 | Field | Healthy | When it is not |
@@ -56,7 +56,7 @@ Pairfob <version>
 | Running | yes | Login service did not start. See `pairfob service status` |
 | Paired | ≥ 1 | Nothing paired yet. Run `pairfob pair` |
 | Herdr | `ready` | `not installed` / `installed but not running` / `incompatible server` / `unavailable` |
-| Origin | `pairfob.com` | Not enrolled |
+| Origin | `pair.taoai.site` | Not enrolled |
 
 `doctor` exits non-zero when Running or Herdr is unhealthy, so scripts can branch on it.
 

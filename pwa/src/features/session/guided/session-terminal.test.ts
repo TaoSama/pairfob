@@ -129,13 +129,7 @@ describe("react guided terminal", () => {
     expect(term?.parentElement).toBe(wrap);
     expect(rows.map((row) => row.getAttribute("data-row"))).toEqual(["0", "1"]);
     expect(rows[0]?.textContent).toContain("hello");
-    expect(appRoot().querySelector(".full-terminal-scroll")).toBeTruthy();
-    expect([...appRoot().querySelectorAll(".full-terminal-scroll-btn")].map((el) => el.getAttribute("aria-label"))).toEqual([
-      "鼠标滚轮向上",
-      "上一页",
-      "下一页",
-      "鼠标滚轮向下",
-    ]);
+    expect(appRoot().querySelector(".full-terminal-scroll")).toBeNull();
     expect(wrap?.hasAttribute("data-react-session-terminal")).toBeTrue();
     const source = await Bun.file(new URL("./session-terminal.tsx", import.meta.url)).text();
     expect(source).not.toContain("termView(");

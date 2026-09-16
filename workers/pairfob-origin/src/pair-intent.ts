@@ -1,4 +1,6 @@
-import { PROTOCOL, TICKET_MS } from "./constants.ts";
+import { CLAIM_PROOF_TTL_MS, PROTOCOL, TICKET_MS } from "./constants.ts";
+import { createClaimProof, getDeviceOwner } from "./account-store.ts";
+import { newClaimProof, resolveIdentity } from "./account-auth.ts";
 import { indexName, normalizeLoc } from "./crockford.ts";
 import type { Env } from "./env.ts";
 import { buildOf, clientIP, errorJson, jsonResponse, noStore, readJSON, requireSameHostBrowserOrigin, unpairedJson } from "./http.ts";
@@ -47,11 +49,38 @@ export async function handlePairIntent(req: Request, env: Env, now = Date.now())
     return unpairedJson(build, store);
   }
 
+  const identity = await resolveIdentity(env.DB, req, now);
+  const owner = await getDeviceOwner(env.DB, found.daemon_id);
+  // A device someone else owns reads exactly like a code that resolves to
+  // nothing, so this response never reveals that the code was in fact valid.
+  if (owner && owner.user_id !== identity?.user.user_id) {
+    await padMiss(env, started);
+    observeIntent(env, "unpaired");
+    return unpairedJson(build, store);
+  }
+
   const ticket = await issueTicket(env, found.daemon_id, loc);
   if (!ticket) {
     await padMiss(env, started);
     observeIntent(env, "unpaired", found.daemon_id);
     return unpairedJson(build, store);
+  }
+
+  // Resolving a pairing code only proves the code was seen, and it is shown on
+  // a screen. So the proof is minted pending against the ticket that will carry
+  // this attempt, and stays unclaimable until the daemon confirms the session.
+  // The value is never returned here: the phone fetches it from
+  // /v2/account/claim-proof once it is armed.
+  if (identity && !owner) {
+    await createClaimProof(env.DB, {
+      proof: newClaimProof(),
+      user_id: identity.user.user_id,
+      daemon_id: found.daemon_id,
+      created_at: now,
+      expires_at: now + CLAIM_PROOF_TTL_MS,
+      ready_at: 0,
+      route_id: "",
+    });
   }
 
   observeIntent(env, "ok", found.daemon_id);

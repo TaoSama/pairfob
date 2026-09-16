@@ -159,8 +159,20 @@ func runRelayWith(link *relayLink, eng *daemon.Engine, relayURL, join string, fi
 			firstDone = true
 		}
 		if needNewPair {
-			offer, err := eng.OpenPairing("")
-			if err != nil {
+			// A daemon running the passphrase gate has no code to rotate, and
+			// minting one would replace the gate with a slot no phone knows the
+			// secret for. Republish the gate itself instead.
+			if _, gated, gateErr := eng.LoadGate(); gateErr != nil {
+				log.Printf("load pairing gate: %v", gateErr)
+			} else if gated {
+				offer, err := eng.OpenPasswordGate()
+				if err != nil {
+					log.Printf("reopen password gate: %v", err)
+				} else {
+					log.Printf("relay reconnected; password gate republished pair_ref=%s", offer.Ref)
+					needNewPair = false
+				}
+			} else if offer, err := eng.OpenPairing(""); err != nil {
 				log.Printf("open replacement pairing: %v", err)
 			} else {
 				fmt.Println("\nRelay reconnected; pairing code rotated:")

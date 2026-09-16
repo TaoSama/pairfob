@@ -2,7 +2,9 @@ import { locale, t } from "./i18n.ts";
 import { type DeviceSummary } from "./protocol/session-types.ts";
 import { runtimeLiveness } from "./runtime-liveness.ts";
 
-export type PairErrorField = "code" | null;
+// The passphrase rail has its own two fields, so a gate
+// failure lands on the input the operator actually typed into.
+export type PairErrorField = "code" | "password" | "passwordLoc" | null;
 
 /** User-facing names for pane preferences. Auto resolves to one concrete view when a pane opens. */
 export const TERM_MODE_LABEL = {
@@ -67,6 +69,17 @@ export function pairProgress(opts: { pairing: boolean; awaitingApproval: boolean
 
 export function pairErrorField(code: string): PairErrorField {
   if (["locator_required", "invalid_pair_code", "bad_pair_code", "unpaired"].includes(code)) return "code";
+  return null;
+}
+
+/**
+ * the same protocol codes, resolved onto the passphrase
+ * rail. `unpaired` means the operator has not opened the gate on the computer,
+ * which is a locator-side problem; a rejected secret is a passphrase problem.
+ */
+export function passwordErrorField(code: string): PairErrorField {
+  if (["bad_pair_code", "invalid_pair_code"].includes(code)) return "password";
+  if (["locator_required", "unpaired", "index_unavailable"].includes(code)) return "passwordLoc";
   return null;
 }
 

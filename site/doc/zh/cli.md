@@ -48,7 +48,7 @@ Pairfob <version>
   Running     yes
   Paired      1
   Herdr       ready (0.8.2, protocol 20)
-  Origin      pairfob.com
+  Origin      pair.taoai.site
 ```
 
 | 项 | 正常 | 不正常时 |
@@ -56,7 +56,7 @@ Pairfob <version>
 | Running | yes | 登录服务没起来，看 `pairfob service status` |
 | Paired | ≥ 1 | 还没配对，跑 `pairfob pair` |
 | Herdr | `ready` | `not installed` / `installed but not running` / `incompatible server` / `unavailable` |
-| Origin | `pairfob.com` | 还没登记 |
+| Origin | `pair.taoai.site` | 还没登记 |
 
 `doctor` 在 Running 或 Herdr 不正常时会以失败退出，方便脚本检测。
 

@@ -1,4 +1,4 @@
-const CACHE = "pairfob-shell-v9";
+const CACHE = "pairfob-shell-v10";
 const PREF = "pairfob-pref";
 const SHELL = ["/", "/pair", "/manifest.webmanifest", "/icon.svg", "/icon-192.png", "/icon-512.png", "/apple-touch-icon.png"];
 const SHELL_NETWORK_GRACE_MS = 750;

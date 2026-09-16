@@ -56,8 +56,9 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
     // see the accepted observation as one coherent update, never runtime
     // identity without its push flag or capabilities.
     const credential = ports.currentCredential();
+    const effectiveHost = credential?.label?.trim() || hostname;
     batch(() => {
-      applyRuntimeIdentity({ herdHost: hostname, runtimeKind });
+      applyRuntimeIdentity({ herdHost: effectiveHost, runtimeKind });
       setPushEnabled(config.push_enabled === true);
       applyCapabilities(operations.capabilities, operations.agentKinds);
     });

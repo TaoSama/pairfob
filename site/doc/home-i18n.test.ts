@@ -47,12 +47,26 @@ describe("homepage i18n", () => {
     expect(html).toContain('class="btn btn-primary cta-desk" href="#start"');
     expect(html).toContain('class="bar-cta cta-phone" href="/pair"');
     expect(html).not.toMatch(/class="bar-cta"(?! cta-phone)[^>]*href="\/pair"/);
-    expect(html).toContain('class="copy cta-desk" data-copy="https://pairfob.com/pair"');
-    expect(html).toContain("Don't open it on this computer.");
-    expect(html).not.toMatch(/<a[^>]*href="\/pair"[^>]*>https:\/\/pairfob.com\/pair/);
-    expect(zh["cta.phone.hint"]).toContain("不要在这台电脑");
+    expect(html).toContain("This address is for the phone.");
+    expect(zh["cta.phone.hint"]).toContain("给手机用的地址");
     expect(en["cta.computer"]).toBe("Start on this computer");
     expect(zh["cta.computer"]).toBe("在这台电脑上开始");
+  });
+
+  test("printed URLs open in a new tab instead of only offering a copy button", () => {
+    const urlLinks = [...html.matchAll(/<a class="url-link[^"]*"[^>]*>([^<]+)<\/a>/g)];
+    expect(urlLinks.map((m) => m[1])).toEqual([
+      "pair.taoai.site/pair",
+      "https://pair.taoai.site/pair",
+    ]);
+    for (const [tag] of urlLinks) {
+      expect(tag).toContain('href="/pair"');
+      expect(tag).toContain('target="_blank"');
+      expect(tag).toContain('rel="noreferrer"');
+    }
+    // A pair URL may still offer copy, but never as the only way to act on it.
+    expect(html).toContain('class="copy" data-copy="https://pair.taoai.site/pair"');
+    expect(html).toContain('class="copy cta-desk" data-copy="https://pair.taoai.site/pair"');
   });
 
   test("phone visitors get a same-tab /pair button in the how-to and pair bands", () => {

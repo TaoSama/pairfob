@@ -17,6 +17,7 @@ import { isAgentChat, isFullTerminal, lastSnapshotAt, openPaneId } from "../sess
 import type { ComputerSessions } from "../computers/session-pool";
 import type { FinishedP2PAttemptObservation, LiveSession, SessionEvent } from "../../lib/protocol/client";
 import { pokeRefreshAction, shouldPullStatus } from "./poll-schedule";
+import { restoreCachedSnapshot } from "./snapshot";
 
 export type SessionEventPorts = {
   documentVisible(): boolean;
@@ -34,6 +35,16 @@ export type SessionEventPorts = {
   handleInactiveTerminal(daemonId: string, session: LiveSession, code?: string): Promise<void>;
   handleActiveTerminal(event: SessionEvent): Promise<void>;
   sessionEventNotice(event: SessionEvent): string;
+  /**
+   * Repaint the last picture this computer showed, from device storage.
+   *
+   * Optional, and defaulted to the real cache: the composition root supplies
+   * the live-session surface, and this observation is the only caller, so
+   * threading it through would add a port every other port's owner has to
+   * know about. A test overrides it to observe the ordering without standing
+   * up storage.
+   */
+  restoreCachedSnapshot?(): Promise<unknown>;
 };
 
 export function observeP2PAttempt(
@@ -99,6 +110,14 @@ export function observeSessionEvent(
   if (event.type === "connected") {
     ports.clearNotice();
     if (!stillActive()) return;
+    // The cached screen goes up first, then the live
+    // pull supersedes it. Started before startPolling so the repaint is not
+    // queued behind the first RPC; the restore itself refuses to paint over a
+    // herd the live answer already filled, so the order of arrival is safe.
+    const restore = ports.restoreCachedSnapshot ?? restoreCachedSnapshot;
+    void restore().then(() => {
+      if (stillActive()) ports.commitView();
+    }, () => undefined);
     ports.startPolling();
     ports.commitView();
     recordConnectionDiagnostic({ event: "view_committed" });

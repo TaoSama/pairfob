@@ -95,7 +95,7 @@ describe("react session scroll rail", () => {
       },
       terminalClose: async () => undefined,
     }) as unknown as LiveSession);
-    renderReact(createElement(SessionTerminal));
+    renderReact(createElement(SessionScrollRail, { scroll: sendGuidedTuiScroll, pageLines: pageScrollLines }));
     const rail = [...appRoot().querySelectorAll(".full-terminal-scroll-btn")] as HTMLButtonElement[];
     const wheelUp = rail.find((el) => el.getAttribute("aria-label") === "鼠标滚轮向上");
     const wheelDown = rail.find((el) => el.getAttribute("aria-label") === "鼠标滚轮向下");
@@ -135,7 +135,7 @@ describe("react session scroll rail", () => {
       startedAt: performance.now(),
       completedAt: performance.now(),
     }));
-    renderReact(createElement(SessionTerminal));
+    renderReact(createElement(SessionScrollRail, { scroll: sendGuidedTuiScroll, pageLines: pageScrollLines }));
     const rail = [...appRoot().querySelectorAll(".full-terminal-scroll-btn")] as HTMLButtonElement[];
     const pageUp = rail.find((el) => el.getAttribute("aria-label") === "上一页");
     const pageDown = rail.find((el) => el.getAttribute("aria-label") === "下一页");

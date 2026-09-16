@@ -5,10 +5,10 @@ description: install.sh 会下载 pairfob、核对校验和、登记，并装上
 
 # 安装
 
-安装从本项目官方实例 `https://pairfob.com/dl` 拉二进制。需要 `curl`。支持 macOS 和 Linux。Windows 会直接拒绝。
+安装从本项目官方实例 `https://pair.taoai.site/dl` 拉二进制。需要 `curl`。支持 macOS 和 Linux。Windows 会直接拒绝。
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh
+curl -fsSL https://pair.taoai.site/install.sh | sh
 ```
 
 第二台电脑也是这条命令。装好后在手机上：**设置 → 添加另一台电脑**。不要设 `PAIRFOB_JOIN_TOKEN`。
@@ -21,7 +21,7 @@ curl -fsSL https://pairfob.com/install.sh | sh
 无交互安装可明确允许补齐依赖：
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-interactive
+curl -fsSL https://pair.taoai.site/install.sh | sh -s -- --install-herdr --non-interactive
 ```
 
 `--non-interactive` 禁止询问；缺少 Herdr 且没有 `--install-herdr` 时失败退出。`--skip-herdr-check` 可用于仅安装或离线准备，但不会显示会话已就绪。`--no-service` 不代表跳过 Herdr 检查；离线拷贝使用 `--no-service --no-enroll --skip-herdr-check`。
@@ -50,7 +50,7 @@ curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-inter
 也可以：
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --prefix "$HOME/bin"
+curl -fsSL https://pair.taoai.site/install.sh | sh -s -- --prefix "$HOME/bin"
 ```
 
 已经登记过的机器再跑一遍安装脚本会换成新二进制，并留下原来的配对关系。

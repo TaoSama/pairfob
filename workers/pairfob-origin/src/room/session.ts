@@ -1,8 +1,15 @@
-import { DAEMON_ID_RE, HELLO_GRACE_MS, MAX_ESTABLISHED, MAX_RESUME, PROTOCOL } from "../constants.ts";
+import {
+  DAEMON_ID_RE,
+  HELLO_GRACE_MS,
+  MAX_ESTABLISHED,
+  MAX_RESUME,
+  PROTOCOL,
+} from "../constants.ts";
 import { isZeroRoute, newRouteId, routeHex } from "../crypto.ts";
 import { encode, Typ, type Frame } from "../envelope.ts";
 import { parseJSONObject, reject, sendErr, sendJSON } from "../frames.ts";
 import { armHello, armResume, clearKindRef } from "./alarms.ts";
+import { ownerMismatch } from "./attachment.ts";
 import type { RoomCore } from "./core.ts";
 import type { RoomSocket } from "./types.ts";
 
@@ -47,6 +54,11 @@ export async function handleSessionAttach(room: RoomCore, ws: RoomSocket, frame:
   const att = room.att(ws);
   if (!att || att.role !== "phone") {
     reject(ws, "unbound", "SESSION_ATTACH on non-phone websocket");
+    return;
+  }
+  if (ownerMismatch(att)) {
+    sendErr(ws, "forbidden", "device belongs to another account");
+    ws.close(1000, "forbidden");
     return;
   }
   if (!att.hello_at_ms || room.now() - att.hello_at_ms > HELLO_GRACE_MS) {
@@ -119,6 +131,16 @@ export async function handleSessionEstablished(room: RoomCore, ws: RoomSocket, f
   room.store.upsertBind({ route_id: att.route_id, kind: "established", created_at: att.created_ms, pair_ref: "" });
   room.noteBind("established");
   await clearKindRef(room.store, "resume_15s", att.route_id);
+  // The daemon just accepted this phone's session, which it does only after the
+  // pairing exchange the relay cannot read. That is the witness an ownership
+  // claim waits on; a failure here must not break an otherwise good session.
+  if (att.account) {
+    try {
+      await room.deps.claims?.confirm(att.account, att.route_id);
+    } catch {
+      /* the claim simply stays unarmed */
+    }
+  }
   client.send(encode(frame));
 }
 
@@ -134,6 +156,12 @@ export function handleDaemonError(room: RoomCore, ws: RoomSocket, frame: Frame):
     return;
   }
   if (room.daemon !== ws) return;
+  // A rejected proof is NOT billed here. The attempt was already charged when
+  // the phone attached (pairing.ts handlePairAttach), because that is the only
+  // point every guesser must pass through: an attacker reads the daemon's
+  // SPAKE2+ answer, checks it offline, and drops the socket without ever
+  // provoking a bad_pair_code. Billing again on this path would charge honest
+  // phones twice and halve the free budget a real operator gets.
   const bodyRid = typeof req.route_id === "string" ? req.route_id : "";
   if (bodyRid) {
     const want = routeHex(frame.routeId);

@@ -95,7 +95,7 @@ func (f *Fake) Observe(ctx context.Context, session SessionRef, query Query) (Vi
 		if value.Format == "" {
 			value.Format = FormatText
 		}
-		if !validPaneReadSource(value.Source) || (value.Format != FormatText && value.Format != FormatANSI) || value.Lines < 0 || value.Lines > 4096 {
+		if !validPaneReadSource(value.Source) || (value.Format != FormatText && value.Format != FormatANSI) || value.Lines < 0 || value.Lines > 10000 {
 			return nil, invalidFault("pane.read", "invalid pane read options")
 		}
 		pane := f.Panes[value.PaneID]

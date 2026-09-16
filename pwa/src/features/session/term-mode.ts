@@ -21,17 +21,19 @@ export async function selectPaneTermMode(preference: TermMode): Promise<void> {
   const active = resolvedPaneTermMode(preference);
   setPaneTermMode(paneId, preference);
 
-  if (active === "guided") {
+  if (preference === "agent" && canEnterAgentChat()) {
+    if (isFullTerminal()) await leaveFullTerminal({ rememberGuided: false, paint: false });
+    enterAgentChat();
+    return;
+  }
+  if (active === "guided" || preference === "auto") {
     if (isFullTerminal()) await leaveFullTerminal({ rememberGuided: false });
     else if (isAgentChat()) leaveAgentChat({ rememberGuided: false });
     return;
   }
-  if (active === "full") {
+  if (active === "full" || preference === "full") {
     if (isAgentChat()) leaveAgentChat({ rememberGuided: false, paint: false });
     if (!isFullTerminal()) enterFullTerminal();
-    // enterFullTerminal records an explicit choice; restore Auto when it made this decision.
-    setPaneTermMode(paneId, preference);
     return;
   }
-  if (canEnterAgentChat()) enterAgentChat();
 }

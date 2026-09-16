@@ -39,6 +39,7 @@
   -webkit-overflow-scrolling: touch;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  will-change: scroll-position;
 }
 
 /*

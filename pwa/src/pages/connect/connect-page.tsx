@@ -5,8 +5,9 @@ import { usePairing } from "../../features/pairing/hooks";
 import { langRevision, subscribeLang } from "../../lib/i18n";
 import { cancelAddComputer } from "../../features/computers/actions";
 import {
-  connectPageInput, cancelPairing, disposePairingPageTransport, focusPairCode, onPairSubmit, pastePairCode,
-  scanPairCode, setManualPairOpen, setPairCode, retirePairingWork,
+  beginPasswordPairing, connectPageInput, cancelPairing, disposePairingPageTransport, focusPairCode, onPairSubmit,
+  pastePairCode, scanPairCode, setManualPairOpen, setPairCode, setPairPassword, setPairPasswordLoc,
+  setPasswordPairOpen, togglePairPasswordVisible, retirePairingWork,
 } from "../../features/pairing/actions";
 import { ConnectView } from "../../features/pairing/connect-view";
 import { connectViewModel } from "../../features/pairing/model";
@@ -94,6 +95,14 @@ export function ConnectScreen() {
         if (open) focusPairCode();
       }}
       onCodeChange={setPairCode}
+      onTogglePassword={setPasswordPairOpen}
+      onPasswordChange={setPairPassword}
+      onPasswordLocChange={setPairPasswordLoc}
+      onPasswordVisible={togglePairPasswordVisible}
+      onPasswordSubmit={event => {
+        event.preventDefault();
+        void beginPasswordPairing(view.passwordDraft, view.passwordLocDraft);
+      }}
     />
   );
 }

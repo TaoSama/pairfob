@@ -233,8 +233,8 @@ class ReconnectingSession implements LiveSession {
   daemonUpdate = (target: string) => this.trackedMutation("DaemonUpdate", { target });
   getConfig = () => this.readRPC("GetConfig", {}) as Promise<Record<string, unknown>>;
   snapshot = () => this.readRPC("Snapshot", { session: null }) as Promise<Record<string, unknown>>;
-  paneRead = (paneId: string, lines = 80, format: "ansi" | "text" = "ansi") =>
-    this.readRPC("PaneRead", { pane_id: paneId, source: "visible", format, lines }) as Promise<{ text: string; truncated?: boolean; hash?: string }>;
+  paneRead = (paneId: string, lines = 2000, format: "ansi" | "text" = "ansi") =>
+    this.readRPC("PaneRead", { pane_id: paneId, source: "recent", format, lines }) as Promise<{ text: string; truncated?: boolean; hash?: string }>;
   sendText = (paneId: string, text: string) => {
     if (fitOperationPrompt(text).truncated) return Promise.reject(new ProtocolError("too_large", "text exceeds 32 KiB"));
     return this.trackedMutation("SendText", { pane_id: paneId, text, submit: false });

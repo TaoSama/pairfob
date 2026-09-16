@@ -8,7 +8,9 @@ import { track } from "../lib/telemetry";
 import { registerSessionView } from "../features/session/register";
 import { preloadFullTerminalXterm } from "../features/session/full-terminal/full-terminal-loader";
 import { handleFullTerminalVisibility } from "../features/session/full-terminal/full-terminal";
-import { initSwipeBack } from "../features/session/pane-actions";
+import { goBackFromPane, initSwipeBack } from "../features/session/pane-actions";
+import { bindBrowserHistory, registerHistoryBackHandler } from "./browser-history";
+import { goToScreen } from "./navigation-store";
 import { stickAgentStream } from "../features/session/chat/agent-chat-controller";
 import { handlePaneKey } from "../features/session/guided/compose";
 import { revealCaretRow, stickBottom } from "../features/session/guided/term";
@@ -22,7 +24,9 @@ import {
   stopPolling,
 } from "../features/connection/controller";
 import { applyOriginPairingPolicy, beginPairing } from "../features/pairing/actions";
+import { resumeAccountAtBoot, claimPairedDevice } from "../pages/account/account-controller";
 import { commitApp } from "./commit";
+import { registerPairedDeviceClaimer, pairedDeviceClaimer, type PairedDeviceClaimer } from "./device-claim";
 import { registerSessionOwnerPreparer, sessionOwnerPreparer } from "./frame";
 import { hydrateApplicationState } from "./hydrate";
 import { mountApp, unmountApp } from "./mount";
@@ -119,6 +123,19 @@ export function startApplication(): () => void {
     // guided, complete terminal) then adopts its owner before React renders.
     // A caller that already injected a preparer (fixture, controller) keeps it.
     if (!sessionOwnerPreparer()) registerSessionOwnerPreparer(registerSessionView);
+    // A machine paired from here on is offered to whatever account is signed in.
+    // The claim is started, not awaited: it waits on somebody confirming at the
+    // computer, and pairing must not hold its own completion open for that.
+    // A caller that already injected a claimer (fixture, test) keeps it, and the
+    // release below only vacates the seam while this lifetime still owns it — a
+    // replacement installed during teardown keeps its own.
+    if (!pairedDeviceClaimer()) {
+      const claim: PairedDeviceClaimer = (daemonId, label) => void claimPairedDevice(daemonId, label);
+      registerPairedDeviceClaimer(claim);
+      releases.push(() => {
+        if (pairedDeviceClaimer() === claim) registerPairedDeviceClaimer(null);
+      });
+    }
     mountApp();
     if (running !== stop) return stop;
     bindNetworkLifecycle(signal);
@@ -158,6 +175,16 @@ export function startApplication(): () => void {
     releases.push(bindRippleSurface(document));
     bindPaneKeys(signal);
     releases.push(initSwipeBack());
+    releases.push(bindBrowserHistory(signal));
+    releases.push(registerHistoryBackHandler(() => {
+      const current = currentScreen();
+      if (current === "pane") {
+        goBackFromPane();
+      } else if (current !== "home") {
+        goToScreen("home", { plain: true });
+        commitBootView();
+      }
+    }));
     registerServiceWorkerAfterLoad(signal);
     void boot(generation);
     return stop;
@@ -282,6 +309,11 @@ async function boot(generation: number): Promise<void> {
     commitBootView();
     return;
   }
+  if (generation !== bootGeneration) return;
+  // Who this browser is, before what it can reach. A signed-in session lands on
+  // its device list and a deployment with an account but no session asks for one;
+  // an origin without an account plane leaves the gate down and boots as before.
+  await resumeAccountAtBoot();
   if (generation !== bootGeneration) return;
   try {
     await reloadComputers(() => generation === bootGeneration);

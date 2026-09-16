@@ -13,9 +13,9 @@ describe("guided pane model", () => {
   });
 
   test("clamps viewport rows to the daemon-safe read window", () => {
-    expect(paneReadLinesFromViewport(undefined)).toBe(80);
-    expect(paneReadLinesFromViewport(7)).toBe(80);
-    expect(paneReadLinesFromViewport(24)).toBe(24);
-    expect(paneReadLinesFromViewport(201)).toBe(80);
+    expect(paneReadLinesFromViewport(undefined)).toBe(2000);
+    expect(paneReadLinesFromViewport(7)).toBe(2000);
+    expect(paneReadLinesFromViewport(1500)).toBe(1500);
+    expect(paneReadLinesFromViewport(10001)).toBe(2000);
   });
 });

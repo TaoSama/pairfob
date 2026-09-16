@@ -12,7 +12,7 @@ const (
 	terminalHistoryMaxBytes     = 120 * 1024
 )
 
-var terminalHistoryWindows = [...]int{200, 400, 800, 1600, 3200, 4096}
+var terminalHistoryWindows = [...]int{200, 400, 800, 1600, 3200, 5000, 10000}
 
 // terminalHistoryWindow reserves one opaque History cursor namespace for the
 // bounded rendered-pane fallback. The public RPC shape stays frozen and the

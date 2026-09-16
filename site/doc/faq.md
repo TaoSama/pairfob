@@ -46,7 +46,7 @@ No. The credential is still in the browser. It reconnects when the network retur
 
 ## Windows?
 
-`pairfob` does not install on Windows yet. A Windows machine can still open <a href="/pair">pairfob.com/pair</a> as a second screen. The host still has to be macOS or Linux.
+`pairfob` does not install on Windows yet. A Windows machine can still open <a href="/pair">pair.taoai.site/pair</a> as a second screen. The host still has to be macOS or Linux.
 
 ## Tailscale / port forwarding?
 
@@ -54,7 +54,7 @@ No. `pairfob` only dials out. The home router does not need a Pairfob port.
 
 ## Can the relay see my code?
 
-It cannot see the session, what you type, or the conversation. On a P2P path, pairfob.com still cannot see the session; the public-address lookup used to try a direct path sees this device’s public address. See [What the relay cannot see](/security).
+It cannot see the session, what you type, or the conversation. On a P2P path, pair.taoai.site still cannot see the session; the public-address lookup used to try a direct path sees this device’s public address. See [What the relay cannot see](/security).
 
 ## What if P2P cannot connect?
 
@@ -82,7 +82,7 @@ Yes. Install pairfob on the other computer with the same command, run `pairfob p
 
 ## Can I reuse the install command?
 
-Yes. Each computer runs `curl -fsSL https://pairfob.com/install.sh | sh` on its own. Then pair it from the phone: **Settings → Add another computer**. Update with `pairfob update`.
+Yes. Each computer runs `curl -fsSL https://pair.taoai.site/install.sh | sh` on its own. Then pair it from the phone: **Settings → Add another computer**. Update with `pairfob update`.
 
 ## Install failed on enroll.
 
@@ -110,7 +110,7 @@ Do not treat the current code as a team invite. Pairing attaches to **your** com
 
 ## Does it cost money?
 
-No. The source is Apache-2.0 at <https://github.com/arronKler/pairfob>. `https://pairfob.com` is this project's official instance: the web app and the relay you enroll against. There is no account and no capacity promise.
+No. The source is Apache-2.0 at <https://github.com/arronKler/pairfob>. `https://pair.taoai.site` is this project's official instance: the web app and the relay you enroll against. There is no account and no capacity promise.
 
 ## Is the documentation Chinese-only?
 

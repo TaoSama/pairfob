@@ -17,6 +17,7 @@ const sourceRoot = fileURLToPath(new URL(".", import.meta.url));
  * undocumented owner-to-owner edge fails here.
  */
 const OWNERS: Record<string, readonly string[]> = {
+  "features/account/account-store": [],
   "features/connection/connection-store": ["features/pairing/form-store"],
   "features/connection/runtime-store": [],
   "features/computers/catalog-store": [],
@@ -73,7 +74,7 @@ function reactSpecs(id: string): string[] {
 
 describe("domain owner manifest", () => {
   test("every declared owner exists and is one exact module", () => {
-    expect(OWNER_IDS).toHaveLength(13);
+    expect(OWNER_IDS).toHaveLength(14);
     for (const id of OWNER_IDS) {
       readFileSync(resolve(sourceRoot, `${id}.ts`)); // a renamed owner must fail
       expect(id).toMatch(/-(store)$|^app\/(navigation|notices)-store$/);

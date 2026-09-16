@@ -4,7 +4,6 @@ import { haptic } from "../../../lib/dom";
 import { t } from "../../../lib/i18n";
 import { attachFullTerminalHost } from "./full-terminal-engine";
 import type { RemoteScroll } from "./full-terminal-scroll";
-import { SessionScrollRail } from "../guided/session-scroll";
 import { FullTerminalStateLayer } from "./full-terminal-state-layer";
 
 /**
@@ -24,14 +23,12 @@ export const FullTerminalHost = memo(function FullTerminalHost({
   paneId,
   active,
   onRetry,
-  scroll,
-  pageLines,
 }: {
   paneId: string;
   active: boolean;
   onRetry: () => void;
-  scroll: RemoteScroll;
-  pageLines: () => number;
+  scroll?: RemoteScroll;
+  pageLines?: () => number;
 }) {
   const rootRef = useRef<HTMLElement | null>(null);
   const hostRef = useRef<HTMLDivElement>(null);
@@ -50,13 +47,6 @@ export const FullTerminalHost = memo(function FullTerminalHost({
   return (
     <div ref={hostRef} aria-label={t("title.terminal")}>
       <FullTerminalStateLayer onRetry={onRetry} />
-      <SessionScrollRail
-        scroll={(direction, lines, source) => {
-          haptic(4);
-          scroll(direction, lines, source);
-        }}
-        pageLines={pageLines}
-      />
       <div className="full-terminal-pan">
         <FullTerminalCanvas />
       </div>

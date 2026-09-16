@@ -44,13 +44,23 @@ func ListenAndServe(path string, svc Service) error {
 func handleConn(conn net.Conn, svc Service) {
 	defer conn.Close()
 	_ = conn.SetDeadline(time.Now().Add(adminTimeout))
+	// The body is kept as raw bytes so gate.set can decode its passphrase into
+	// a struct of its own instead of widening Request with a secret field.
+	var body json.RawMessage
 	var req Request
-	if err := json.NewDecoder(io.LimitReader(conn, maxAdminRequest)).Decode(&req); err != nil {
+	if err := json.NewDecoder(io.LimitReader(conn, maxAdminRequest)).Decode(&body); err != nil {
+		_ = json.NewEncoder(conn).Encode(errResult(fmt.Errorf("bad_request")))
+		return
+	}
+	if err := json.Unmarshal(body, &req); err != nil {
 		_ = json.NewEncoder(conn).Encode(errResult(fmt.Errorf("bad_request")))
 		return
 	}
 	_ = conn.SetDeadline(time.Now().Add(timeoutFor(req.Op)))
 	if handleProcess(conn, svc, req) {
+		return
+	}
+	if handleGate(conn, svc, req, body) {
 		return
 	}
 	_ = json.NewEncoder(conn).Encode(dispatch(svc, req))
@@ -65,6 +75,9 @@ func timeoutFor(op string) time.Duration {
 	}
 	if op == "relay.rekey" {
 		return rekeyTimeout
+	}
+	if op == "gate.set" {
+		return deriveGateTimeout
 	}
 	return adminTimeout
 }

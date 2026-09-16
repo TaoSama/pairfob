@@ -8,6 +8,8 @@ const empty = {
   computerCount: 0,
   fragment: null,
   pairCodeDraft: "",
+  pairPasswordDraft: "",
+  pairPasswordLocDraft: "",
   pairManualOpen: false,
   pairErrorTarget: null as "code" | null,
   pairFailedStep: null,
@@ -39,5 +41,24 @@ describe("connect view model", () => {
     const draft = connectViewModel({ ...empty, pairCodeDraft: "ABCD-EFGH" });
     expect(draft.pairCodeLength).toBe(8);
     expect(draft.pairCodeComplete).toBeFalse();
+  });
+
+  test("a short passphrase is flagged weak but still submittable", () => {
+    setLang("zh");
+    // 11 bytes: over the daemon's 8-byte floor, under the nudge threshold.
+    const weak = connectViewModel({ ...empty, pairPasswordDraft: "abcdefghijk", pairPasswordLocDraft: "WJ3K9M" });
+    expect(weak.passwordBytes).toBe(11);
+    expect(weak.passwordWeak).toBeTrue();
+    // Advisory only: the submit must stay available.
+    expect(weak.passwordReady).toBeTrue();
+
+    const strong = connectViewModel({ ...empty, pairPasswordDraft: "abcdefghijkl", pairPasswordLocDraft: "WJ3K9M" });
+    expect(strong.passwordBytes).toBe(12);
+    expect(strong.passwordWeak).toBeFalse();
+
+    // Too short to be valid at all is not "weak", it is rejected.
+    const tooShort = connectViewModel({ ...empty, pairPasswordDraft: "abc" });
+    expect(tooShort.passwordWeak).toBeFalse();
+    expect(tooShort.passwordReady).toBeFalse();
   });
 });

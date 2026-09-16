@@ -187,13 +187,7 @@ describe("terminal rows stay faithful to the live TUI", () => {
   test("TUI wheel uses TerminalScroll while page buttons keep CSI", () => {
     applyPaneRead("ready", "");
     paint();
-    expect(appRoot().querySelector(".full-terminal-scroll")).toBeTruthy();
-    expect([...appRoot().querySelectorAll(".full-terminal-scroll-btn")].map((el) => el.getAttribute("aria-label"))).toEqual([
-      "鼠标滚轮向上",
-      "上一页",
-      "下一页",
-      "鼠标滚轮向下",
-    ]);
+    expect(appRoot().querySelector(".full-terminal-scroll")).toBeNull();
     expect(termSource).toContain("sendGuidedTuiScroll");
     expect(termSource).not.toContain('"pageup"');
     expect(termSource).not.toContain('"pagedown"');
@@ -205,8 +199,6 @@ describe("terminal rows stay faithful to the live TUI", () => {
     expect(keysSource).toContain("session.sendText");
     expect(reactTerm).toContain("sendGuidedTuiScroll(direction, lines, source)");
     expect(reactTerm).toContain("capturePan: guidedCapturePan");
-    expect(reactTerm).toContain("SessionScrollRail");
-    expect(reactRail).toContain('className="full-terminal-scroll"');
     expect(termSource).not.toContain("scrollRail(");
   });
 });

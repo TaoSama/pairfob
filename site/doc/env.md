@@ -11,7 +11,7 @@ Operator-facing variables only. Leave unspecified variables unset. Do not put se
 
 | Variable | When |
 | --- | --- |
-| `PAIRFOB_ORIGIN` | Default `https://pairfob.com` (this project's official instance). Leave unset |
+| `PAIRFOB_ORIGIN` | Default `https://pair.taoai.site` (this project's official instance). Leave unset |
 | `PAIRFOB_JOIN_TOKEN` | **Forbidden**. Setting it fails startup |
 
 ## Local state
@@ -25,7 +25,7 @@ Operator-facing variables only. Leave unspecified variables unset. Do not put se
 
 | Variable | Notes |
 | --- | --- |
-| `PAIRFOB_DOWNLOAD_BASE` | Binary download root, default `https://pairfob.com/dl` |
+| `PAIRFOB_DOWNLOAD_BASE` | Binary download root, default `https://pair.taoai.site/dl` |
 | `PAIRFOB_INSTALL_PREFIX` | Same as `install.sh --prefix` |
 
 ## Push

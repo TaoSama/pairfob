@@ -5,10 +5,10 @@ description: install.sh downloads pairfob, verifies checksums, enrolls, and inst
 
 # Install
 
-Install pulls binaries from this project's official instance at `https://pairfob.com/dl`. `curl` is required. macOS and Linux. Windows is rejected.
+Install pulls binaries from this project's official instance at `https://pair.taoai.site/dl`. `curl` is required. macOS and Linux. Windows is rejected.
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh
+curl -fsSL https://pair.taoai.site/install.sh | sh
 ```
 
 The same command on a second computer. Then pair it from the phone: **Settings → Add another computer**. Do not set `PAIRFOB_JOIN_TOKEN`.
@@ -21,7 +21,7 @@ Before replacing Pairfob, enrolling, or installing its service, the installer ch
 For unattended installation, explicitly allow the missing dependency:
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-interactive
+curl -fsSL https://pair.taoai.site/install.sh | sh -s -- --install-herdr --non-interactive
 ```
 
 `--non-interactive` never prompts and fails when Herdr is missing unless `--install-herdr` is also set. `--skip-herdr-check` installs Pairfob without claiming session readiness. `--no-service` still checks Herdr; for offline preparation use `--no-service --no-enroll --skip-herdr-check`.
@@ -50,7 +50,7 @@ Later, run `pairfob setup` to check and start Herdr, or `pairfob setup --install
 Also valid:
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --prefix "$HOME/bin"
+curl -fsSL https://pair.taoai.site/install.sh | sh -s -- --prefix "$HOME/bin"
 ```
 
 Machines that already enrolled: rerunning the installer refreshes the binary and leaves existing pairings alone.

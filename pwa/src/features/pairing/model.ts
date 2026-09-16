@@ -1,7 +1,8 @@
 import { t } from "../../lib/i18n";
 import { normalizeCrockford } from "../../lib/protocol/bytes";
-import { pairProgress, type PairStep, type PairStepKey } from "../../lib/ui-model";
-import type { FragmentPairing } from "../../lib/pairing-input";
+import { normalizePassword, WEAK_PASSWORD_BYTES } from "../../lib/pairing-password";
+import { pairProgress, type PairErrorField, type PairStep, type PairStepKey } from "../../lib/ui-model";
+import { parsePairLocator, type FragmentPairing } from "../../lib/pairing-input";
 
 export type ConnectNotice = { text: string; tone: "error" | "status" };
 
@@ -17,11 +18,15 @@ export type ConnectViewInput = {
   fragment: FragmentPairing | null;
   pairCodeDraft: string;
   pairManualOpen: boolean;
-  pairErrorTarget: "code" | null;
+  pairErrorTarget: PairErrorField;
   pairFailedStep: PairStepKey | null;
   pairAwaitingApproval: boolean;
   notice: ConnectNotice | null;
   desk: boolean;
+  pairPasswordDraft: string;
+  pairPasswordOpen: boolean;
+  pairPasswordVisible: boolean;
+  pairPasswordLocDraft: string;
 };
 
 export type ConnectViewModel = {
@@ -46,6 +51,16 @@ export type ConnectViewModel = {
   pairCodeComplete: boolean;
   pairCodeInvalid: boolean;
   manualOpen: boolean;
+  passwordOpen: boolean;
+  passwordDraft: string;
+  passwordVisible: boolean;
+  passwordLocDraft: string;
+  /** UTF-8 bytes, the unit the daemon bounds — not the character count. */
+  passwordBytes: number;
+  passwordReady: boolean;
+  passwordWeak: boolean;
+  passwordInvalid: boolean;
+  passwordLocInvalid: boolean;
 };
 
 export function connectViewModel(input: ConnectViewInput): ConnectViewModel {
@@ -56,6 +71,10 @@ export function connectViewModel(input: ConnectViewInput): ConnectViewModel {
   const railFailure = input.pairFailedStep && input.pairFailedStep !== "code" ? input.notice : null;
   const railNote = railFailure?.tone === "error" ? railFailure.text : null;
   const length = normalizeCrockford(input.pairCodeDraft).length;
+  // The counter is in UTF-8 bytes, the unit the daemon
+  // bounds, so a CJK passphrase is measured the way it will be validated.
+  const password = normalizePassword(input.pairPasswordDraft);
+  const passwordLoc = parsePairLocator(input.pairPasswordLocDraft);
   return {
     pageClass: adding ? "page settings-page" : `prelude${busy ? " pairing" : ""}`,
     adding,
@@ -82,5 +101,21 @@ export function connectViewModel(input: ConnectViewInput): ConnectViewModel {
     pairCodeComplete: length === 14,
     pairCodeInvalid: input.pairErrorTarget === "code",
     manualOpen,
+    // A gate failure keeps the rail open so the operator
+    // can correct the passphrase without hunting for the disclosure again.
+    passwordOpen: input.pairPasswordOpen
+      || input.pairErrorTarget === "password" || input.pairErrorTarget === "passwordLoc",
+    passwordDraft: input.pairPasswordDraft,
+    passwordVisible: input.pairPasswordVisible,
+    passwordLocDraft: input.pairPasswordLocDraft,
+    passwordBytes: password.bytes,
+    // Both halves must be usable before the button offers to spend an attempt
+    // against the gate's throttle.
+    passwordReady: password.ok && passwordLoc !== null,
+    // Advisory only: a short passphrase is still accepted, because the daemon
+    // accepts it and refusing here would just look broken.
+    passwordWeak: password.ok && password.bytes < WEAK_PASSWORD_BYTES,
+    passwordInvalid: input.pairErrorTarget === "password",
+    passwordLocInvalid: input.pairErrorTarget === "passwordLoc",
   };
 }

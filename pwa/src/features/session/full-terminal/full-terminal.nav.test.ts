@@ -332,7 +332,7 @@ describe("complete-terminal remembers its mode per pane", () => {
     expect(host?.classList.contains("is-pan")).toBe(true);
     expect(host?.querySelector(".full-terminal-pan")).toBeTruthy();
     expect(host?.querySelector(".full-terminal-canvas")).toBeTruthy();
-    expect(host?.querySelector(".full-terminal-scroll")).toBeTruthy();
+    expect(host?.querySelector(".full-terminal-scroll")).toBeNull();
     act(() => setTermFit("fit"));
     expect(app.querySelector(".full-terminal-host")?.classList.contains("is-pan")).toBe(false);
     act(() => setTermFit("pan"));
@@ -342,24 +342,19 @@ describe("complete-terminal remembers its mode per pane", () => {
     expect(localStorage.getItem("pairfob:termCols")).toBe("120");
   });
 
-  test("the shell keeps scroll controls owned by the host while the pad expands below it", () => {
+  test("the shell keeps layout structure while the pad expands below it", () => {
     act(() => setKeysExpanded(false));
     bootFullTerminal();
     const root = app.querySelector<HTMLElement>(".full-terminal-root")!;
     const chrome = root.querySelector<HTMLElement>(".full-terminal-chrome")!;
     const host = root.querySelector<HTMLElement>(".full-terminal-host")!;
-    const rail = root.querySelector<HTMLElement>(".full-terminal-scroll")!;
     const pad = root.querySelector<HTMLElement>(".full-terminal-pad")!;
     expect([...root.children]).toEqual([chrome, host, pad]);
-    expect(host.contains(rail)).toBeTrue();
-    expect(pad.contains(rail)).toBeFalse();
-    expect(rail.querySelectorAll(".full-terminal-scroll-btn")).toHaveLength(4);
 
     click('.full-terminal-pad [aria-label="更多按键"]');
     const expandedPad = root.querySelector<HTMLElement>(".full-terminal-pad")!;
     expect(keysExpanded()).toBeTrue();
     expect([...root.children]).toEqual([chrome, host, expandedPad]);
-    expect(host.contains(rail)).toBeTrue();
     expect(expandedPad.querySelectorAll(".keys")).toHaveLength(3);
 
     click('.full-terminal-pad [aria-label="更多按键"]');

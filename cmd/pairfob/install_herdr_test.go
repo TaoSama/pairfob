@@ -90,7 +90,7 @@ esac
 				}
 			} else {
 				lines := strings.Split(strings.TrimSpace(string(calls)), "\n")
-				if len(lines) != 5 || lines[0] != "setup --install-herdr --non-interactive" || !strings.HasPrefix(lines[1], "service prepare-install ") || strings.Join(lines[2:], "\n") != "enroll\nservice install\ndoctor" {
+				if len(lines) != 5 || lines[0] != "setup --install-herdr --non-interactive" || !strings.HasPrefix(lines[1], "service prepare-install ") || strings.Join(lines[2:], "\n") != "enroll --origin https://pair.taoai.site\nservice install\ndoctor" {
 					t.Fatalf("calls %q", calls)
 				}
 				prepared := strings.TrimPrefix(lines[1], "service prepare-install ")

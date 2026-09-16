@@ -15,6 +15,6 @@ export function paneModelFromText(text: string, previous?: PaneModelCache | null
 }
 
 export function paneReadLinesFromViewport(rows: number | undefined): number {
-  if (rows && rows >= 8 && rows <= 200) return rows;
-  return 80;
+  if (rows && rows >= 1000 && rows <= 10000) return rows;
+  return 2000;
 }

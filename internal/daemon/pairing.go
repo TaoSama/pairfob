@@ -283,10 +283,17 @@ func (e *Engine) expirePairing(pair *pairingSlot) {
 		e.mu.Unlock()
 		return
 	}
+	// The TTL bounds how long a slot may sit half-finished, not how long the
+	// passphrase is valid. A gate that expired into nothing would mean the
+	// login silently stops working some minutes after the daemon starts.
+	reopenGate := pair.persistent
 	ref := e.burnPairLocked(pair)
 	e.mu.Unlock()
 	e.sendPairClose(ref)
 	e.audit("pair_expired", map[string]any{"pair_ref": ref})
+	if reopenGate {
+		e.reopenPasswordGate()
+	}
 }
 
 // Admit authorizes the active one-use pairing slot. It may run before or after
@@ -440,6 +447,18 @@ func (e *Engine) pairFailureLocked(pair *pairingSlot, reason string) (burnedRef 
 	}
 	pair.failures++
 	e.audit("pair_failure", map[string]any{"pair_ref": pair.ref, "attempt_id": pair.attempt, "reason": reason, "failures": pair.failures})
+	// A one-use code is burned after three bad proofs so a guesser cannot keep
+	// hammering it. The passphrase gate must not be: burning it would let any
+	// stranger disable pairing for every phone with three wrong guesses. Rate
+	// limiting, not destruction, is what bounds guessing against the gate.
+	//
+	// The attempt is not charged here. SpakeShareP already billed it, because
+	// the online guess completes when the daemon answers confirm_v — long
+	// before this failure path runs, and whether or not it runs at all.
+	if pair.persistent {
+		e.resetPairAttemptLocked(pair)
+		return ""
+	}
 	if pair.failures >= 3 {
 		return e.burnPairLocked(pair)
 	}
@@ -531,6 +550,11 @@ func (e *Engine) handlePairFWD(f envelope.Frame, pair *pairingSlot) {
 		if persistErr != nil {
 			delete(e.Devices, device.ID)
 		}
+		// A completed pairing always burns the slot, including the gate's. The
+		// passphrase outlives it, so the gate has to be republished or only the
+		// very first phone would ever get in and every later one would find
+		// nothing to attach to.
+		reopenGate := pair.persistent
 		ref := e.burnPairLocked(pair)
 		e.mu.Unlock()
 		e.sendPairClose(ref)
@@ -539,6 +563,9 @@ func (e *Engine) handlePairFWD(f envelope.Frame, pair *pairingSlot) {
 			return
 		}
 		e.audit("pair_complete", map[string]any{"pair_ref": ref, "device_id": device.ID})
+		if reopenGate {
+			e.reopenPasswordGate()
+		}
 		return
 	}
 
@@ -556,6 +583,26 @@ func (e *Engine) handlePairFWD(f envelope.Frame, pair *pairingSlot) {
 	}
 	switch msg.Op {
 	case "SpakeShareP":
+		// The gate is never burned, so the cooldown is what stops a dictionary
+		// run. Refuse before touching Argon2id/P-256 work: an attacker must not
+		// be able to buy CPU time from the daemon just by reconnecting.
+		if pair.persistent {
+			now := time.Now()
+			if !e.allowGateAttemptLocked(now) {
+				rid := pair.routeID
+				e.mu.Unlock()
+				e.audit("pair_gate_throttled", map[string]any{"pair_ref": pair.ref})
+				e.sendPairAttemptFailure("", rid)
+				return
+			}
+			// Charge the attempt here rather than when SpakeConfirmP fails. In
+			// SPAKE2+ the online guess is already spent once the daemon answers
+			// with confirm_v: a guesser can check that value offline and hang up
+			// without ever sending a confirm, so billing on confirm alone leaves
+			// the gate answering an unlimited dictionary run. A phone that
+			// proceeds to a valid confirm has its charge refunded below.
+			e.noteGateFailureLocked(now)
+		}
 		if pair.verifier == nil || pair.confirmVerified || msg.Confirm != "" {
 			ref, rid := e.rejectPairAttemptLocked(pair, "bad_state")
 			e.mu.Unlock()
@@ -581,9 +628,13 @@ func (e *Engine) handlePairFWD(f envelope.Frame, pair *pairingSlot) {
 			"v": 1, "op": "SpakeShareV", "attempt_id": pair.attempt,
 			"share": canon.B64URL(shareV), "confirm_v": canon.B64URL(keys.ConfirmV),
 		})
+		// Snapshot the route under the lock. A concurrent PAIR_ATTACHED rewrites
+		// pair.routeID in place, so reading it after the unlock races and can
+		// address this reply to whichever attempt attached last.
+		rid := pair.routeID
 		e.mu.Unlock()
 		if err == nil {
-			_ = e.Conn.Send(envelope.Frame{Version: 1, Typ: envelope.TypFWD, RouteID: pair.routeID, Payload: payload})
+			_ = e.Conn.Send(envelope.Frame{Version: 1, Typ: envelope.TypFWD, RouteID: rid, Payload: payload})
 		}
 	case "SpakeConfirmP":
 		if len(pair.keys.ConfirmP) != 32 || pair.confirmVerified || msg.Share != "" {
@@ -600,6 +651,13 @@ func (e *Engine) handlePairFWD(f envelope.Frame, pair *pairingSlot) {
 			return
 		}
 		pair.confirmVerified = true
+		if pair.persistent {
+			// The guess charged at SpakeShareP turned out to be a legitimate
+			// login, so refund it. Without this, a phone that reconnects a few
+			// times — a flaky network, a backgrounded PWA — would throttle its
+			// own owner even though every proof was correct.
+			e.refundGateAttemptLocked()
+		}
 		if pair.readyCh != nil {
 			pair.readyOnce.Do(func() { close(pair.readyCh) })
 		}
@@ -622,7 +680,12 @@ func (e *Engine) handlePairFWD(f envelope.Frame, pair *pairingSlot) {
 }
 
 func (e *Engine) issueConfirmPairing(pair *pairingSlot) {
-	accepted := e.AutoAdmit || e.waitAdmit(pair)
+	// A persistent gate needs no operator approval: the phone already proved it
+	// holds the passphrase, and requiring someone at the keyboard would defeat
+	// the purpose of a login you can use from anywhere. The device_psk minted
+	// below is still fresh random bytes, so the passphrase never becomes key
+	// material and revoking one device does not touch the others.
+	accepted := e.AutoAdmit || e.gateSelfAdmits(pair) || e.waitAdmit(pair)
 	if !accepted {
 		e.mu.Lock()
 		ref := e.burnPairLocked(pair)
