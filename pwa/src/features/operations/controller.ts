@@ -10,6 +10,7 @@ import {
   removeDiffNotes,
 } from "../../lib/diff-notes";
 import { askConfirm, askText } from "../../lib/dom";
+import { readDeviceLabel, rememberDeviceLabel } from "../../lib/credentials";
 import { t } from "../../lib/i18n";
 import { displayDeviceLabel } from "../../lib/ui-model";
 import { clearAgentTraceCache, forgetAgentTrace } from "../../lib/agent-trace-cache";
@@ -41,7 +42,7 @@ import { advertisedAgentKinds, capabilityEnabled, operationBusy } from "./capabi
 import { computersStore, currentDaemonId, liveSession } from "../computers/catalog-store";
 import { dashboardStore, selectedAgent } from "../dashboard/catalog-store";
 import { currentScreen, leavePaneScreen } from "../../app/navigation-store";
-import { applyDeviceList } from "../connection/runtime-store";
+import { applyDeviceList, runtimeStore } from "../connection/runtime-store";
 import { isFullTerminal, openPaneId, selectPane, sessionStore } from "../session/session-store";
 import { landAfterDisconnect, openPane, openPaneWithOwner, refreshFromSession, refreshPane } from "../connection/controller";
 import { reconcileAmbiguousMutation } from "../connection/mutations";
@@ -78,6 +79,77 @@ export async function revokeSelf(): Promise<void> {
     await reportOwnedError(owner, error);
   }
   if (ownsOperationView(owner) || liveSession() === null) commitView();
+}
+
+/**
+ * Rename this phone.
+ *
+ * Every computer keeps its own copy of the label, so the new name is stored
+ * locally as well as sent: the connected computer takes it now, and the ones
+ * that are offline pick it up from `syncDeviceLabel` the next time settings
+ * loads against them. Without the local copy a rename would silently apply to
+ * one computer and leave the phone answering to its old name everywhere else.
+ */
+export async function renameSelf(): Promise<void> {
+  const session = liveSession();
+  if (!session) return;
+  const current = runtimeStore.get().deviceList.find((device) => device.self && !device.revoked_at);
+  const owner = operationOwner(session);
+  const typed = await askText(
+    t("settings.renamePhone"),
+    displayDeviceLabel(current?.label || ""),
+    OPERATION_INPUT_LIMITS.label,
+    t("settings.thisPhone"),
+  );
+  if (typed === null || !ownsOperationView(owner)) return;
+  const label = typed.trim();
+  if (!label || label === current?.label) return;
+  try {
+    await session.renameDevice(label);
+    if (!ownsOperationView(owner)) return;
+    // Persisted only after the daemon accepted it: a name the computer refused
+    // must not be replayed to every other computer as though it had stuck.
+    await rememberDeviceLabel(label);
+    if (!ownsOperationView(owner)) return;
+    const listed = await session.listDevices();
+    if (!ownsOperationView(owner)) return;
+    applyDeviceList(Array.isArray(listed.devices) ? listed.devices : []);
+    showStatus(t("settings.renamedPhone", { name: label }));
+    commitView();
+  } catch (error) {
+    await reportOwnedError(owner, error);
+  }
+}
+
+/**
+ * Carry a rename to a computer that was offline when it happened.
+ *
+ * Called with the device list a settings read just returned, so it costs one
+ * comparison in the common case and one RPC exactly once per computer that is
+ * behind. A failure is left for the next settings read rather than reported:
+ * nothing the person did just now has gone wrong.
+ */
+export async function syncDeviceLabel(
+  devices: readonly DeviceSummary[],
+  storedLabel: () => Promise<string | null> = readDeviceLabel,
+): Promise<void> {
+  const session = liveSession();
+  if (!session) return;
+  const self = devices.find((device) => device.self && !device.revoked_at);
+  if (!self) return;
+  let chosen: string | null = null;
+  try {
+    chosen = await storedLabel();
+  } catch {
+    // No local store to read, so there is no chosen name to carry.
+    return;
+  }
+  if (!chosen || chosen === self.label) return;
+  try {
+    await session.renameDevice(chosen);
+  } catch {
+    // The computer keeps its old copy; the next settings read tries again.
+  }
 }
 
 export async function revokeDevice(device: DeviceSummary): Promise<void> {

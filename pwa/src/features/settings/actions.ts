@@ -21,6 +21,7 @@ import { applyComposeDraft, bumpViewIncarnation, parkComposeView } from "../sess
 import { isDesk } from "../../app/viewport";
 import { acceptDaemonVersion, checkDaemonRelease, markDaemonConfigIncompatible } from "./daemon-update";
 import { refreshAgentQuota } from "../agent-quota/actions";
+import { syncDeviceLabel } from "../operations/controller";
 
 /**
  * Settings controller — the feature's one connected adapter for settings reads,
@@ -122,7 +123,12 @@ export async function refreshSettings(): Promise<void> {
   ]);
   if (!settingsReadStillOwned(request, session)) return;
   if (devices.status === "fulfilled") {
-    applyDeviceList(Array.isArray(devices.value.devices) ? devices.value.devices : [], "");
+    const listed = Array.isArray(devices.value.devices) ? devices.value.devices : [];
+    applyDeviceList(listed, "");
+    // A computer that was offline during a rename still calls this phone by its
+    // old name; carrying the choice here is what makes one rename reach all of
+    // them without asking the person to repeat it per computer.
+    void syncDeviceLabel(listed);
   } else {
     setDevicesError(t("err.devicesLoad"));
   }

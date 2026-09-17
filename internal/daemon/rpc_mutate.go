@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strings"
 	"unicode/utf8"
 
 	"pairfob/internal/runtime"
@@ -282,6 +283,36 @@ func (e *Engine) rpcRevokeDevice(s *sess, id string, params json.RawMessage) {
 	e.audit("device_revoke_requested", map[string]any{
 		"device_id": p.DeviceID, "actor_device_id": s.deviceID, "has_reason": p.Reason != "",
 	})
+}
+
+// rpcRenameDevice renames the device that asked.
+//
+// The target is the session's own identity rather than a parameter: a label is
+// how a person tells their phones apart, and letting one paired device relabel
+// another would let it disguise itself as one. Naming is therefore self-service
+// only, and needs no operator approval because it grants nothing.
+func (e *Engine) rpcRenameDevice(s *sess, id string, params json.RawMessage) {
+	var p struct {
+		Label string `json:"label"`
+	}
+	if badParams(params, &p) {
+		e.replyErr(s, id, "unknown_op", "invalid params")
+		return
+	}
+	label := strings.TrimSpace(p.Label)
+	if label == "" || utf8.RuneCountInString(label) > maxLabelBytes || !utf8.ValidString(label) {
+		e.replyErr(s, id, "too_large", "invalid label")
+		return
+	}
+	if err := e.renameDevice(s.deviceID, label); err != nil {
+		if errors.Is(err, errRevoked) {
+			e.replyErr(s, id, "revoked", "device revoked")
+			return
+		}
+		e.replyErr(s, id, "internal", "persistent device update failed")
+		return
+	}
+	_ = e.reply(s, id, map[string]any{"ok": true, "device_id": s.deviceID, "label": label})
 }
 
 func (e *Engine) rpcListDevices(s *sess, id string, params json.RawMessage) {

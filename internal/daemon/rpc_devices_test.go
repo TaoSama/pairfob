@@ -10,6 +10,7 @@ import (
 
 	"pairfob/internal/envelope"
 	"pairfob/internal/mux"
+	"pairfob/internal/state"
 )
 
 func TestListDevicesOmitsRevokedAndMarksConnected(t *testing.T) {
@@ -155,5 +156,89 @@ func TestRevokeDeviceMissingIsNotApplied(t *testing.T) {
 	}
 	if json.Unmarshal(raw, &result) != nil || result.Outcome != "not_applied" {
 		t.Fatalf("missing revoke: %s", raw)
+	}
+}
+
+func TestRenameDeviceRenamesOnlyTheCaller(t *testing.T) {
+	eng, hub, _, _, stopD, stopE := setup(t)
+	defer close(stopD)
+	defer close(stopE)
+
+	store, err := state.Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	eng.Store = store
+
+	self := seedClient(t, eng, hub)
+	if err := self.Resume(eng.DaemonID); err != nil {
+		t.Fatal(err)
+	}
+	other := seedClient(t, eng, hub)
+	if err := other.Resume(eng.DaemonID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := self.RPC("RenameDevice", map[string]any{"label": "  Wentao 的手机  "}); err != nil {
+		t.Fatal(err)
+	}
+
+	eng.mu.Lock()
+	renamed := eng.Devices[self.DeviceID].Label
+	untouched := eng.Devices[other.DeviceID].Label
+	eng.mu.Unlock()
+	// Surrounding whitespace is trimmed so a label cannot be padded into
+	// looking like a different device.
+	if renamed != "Wentao 的手机" {
+		t.Fatalf("caller label = %q", renamed)
+	}
+	if untouched == "Wentao 的手机" {
+		t.Fatal("rename reached another device")
+	}
+
+	// The label a restart would load is the one that was reported.
+	rows, loadErr := eng.Store.LoadDevices()
+	if loadErr != nil {
+		t.Fatal(loadErr)
+	}
+	persisted := ""
+	for _, row := range rows {
+		if row.ID == self.DeviceID {
+			persisted = row.Label
+		}
+	}
+	if persisted != "Wentao 的手机" {
+		t.Fatalf("persisted label = %q", persisted)
+	}
+}
+
+func TestRenameDeviceRejectsEmptyAndOversizedLabels(t *testing.T) {
+	eng, hub, _, _, stopD, stopE := setup(t)
+	defer close(stopD)
+	defer close(stopE)
+
+	self := seedClient(t, eng, hub)
+	if err := self.Resume(eng.DaemonID); err != nil {
+		t.Fatal(err)
+	}
+	eng.mu.Lock()
+	original := eng.Devices[self.DeviceID].Label
+	eng.mu.Unlock()
+
+	for name, label := range map[string]string{
+		"empty":      "",
+		"whitespace": "   ",
+		"oversized":  strings.Repeat("x", 257),
+	} {
+		if _, err := self.RPC("RenameDevice", map[string]any{"label": label}); err == nil {
+			t.Fatalf("%s label was accepted", name)
+		}
+	}
+
+	eng.mu.Lock()
+	current := eng.Devices[self.DeviceID].Label
+	eng.mu.Unlock()
+	if current != original {
+		t.Fatalf("refused rename still changed the label: %q -> %q", original, current)
 	}
 }

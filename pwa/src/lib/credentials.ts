@@ -235,6 +235,26 @@ export async function rememberLastUsed(daemonId: string): Promise<void> {
  * machine's `device_psk` in the clear, so persisting it grants no reach the
  * database did not already give. Signing out clears it with them.
  */
+const DEVICE_LABEL_KEY = "device_label";
+
+/**
+ * The name this phone goes by, as chosen here rather than guessed from the
+ * user agent.
+ *
+ * Each computer stores its own copy of the label in its device file, so the
+ * choice has to live somewhere that outlives one connection: it is replayed to
+ * every computer this phone reaches, which is what makes one rename stick
+ * everywhere instead of only on whichever computer happened to be connected.
+ */
+export async function rememberDeviceLabel(label: string): Promise<void> {
+  await writeSetting(DEVICE_LABEL_KEY, label);
+}
+
+export async function readDeviceLabel(): Promise<string | null> {
+  const stored = await readSetting(DEVICE_LABEL_KEY);
+  return typeof stored === "string" && stored.trim() ? stored : null;
+}
+
 export async function rememberWrapKey(wrapKey: Uint8Array): Promise<void> {
   if (wrapKey.length !== WRAP_KEY_BYTES) return;
   await writeSetting(WRAP_KEY_KEY, b64url(wrapKey));

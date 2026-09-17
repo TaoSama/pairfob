@@ -300,6 +300,8 @@ export const en: { [K in keyof typeof zh]: string } = {
   "settings.networkP2PFailedVerify": "The direct channel opened but did not pass secure verification.",
   "settings.networkRelayFailed": "Could not switch to Relay. Try again shortly.",
   "settings.thisPhone": "This phone",
+  "settings.renamePhone": "Rename this phone",
+  "settings.renamedPhone": "Renamed to {name}",
   "settings.pairedPhone": "Paired device",
   "settings.currentComputer": "This computer",
   "settings.addComputer": "Add another computer",

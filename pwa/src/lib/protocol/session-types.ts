@@ -74,6 +74,8 @@ export type LiveSession = {
   sendText: (paneId: string, text: string) => Promise<unknown>;
   listDevices: () => Promise<{ devices?: DeviceSummary[] }>;
   revokeDevice: (deviceId: string) => Promise<unknown>;
+  /** Rename this device. The daemon scopes the change to the calling session. */
+  renameDevice: (label: string) => Promise<unknown>;
   pushSubscribe: (subscription: PushSubscriptionJSON) => Promise<unknown>;
   renamePane: (paneId: string, label: string | null) => Promise<unknown>;
   renameTab: (tabId: string, label: string) => Promise<unknown>;

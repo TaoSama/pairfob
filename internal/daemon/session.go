@@ -575,6 +575,35 @@ func (e *Engine) markDeviceRevoked(deviceID string) error {
 	return nil
 }
 
+// renameDevice stores a new label for one device.
+//
+// The write is rolled back in memory when it fails to reach disk, so a label
+// that survives a restart is the only label the caller is ever shown. An
+// unchanged label is not written at all: renaming to the current name is a
+// no-op, not a reason to churn the device file.
+func (e *Engine) renameDevice(deviceID, label string) error {
+	e.mu.Lock()
+	dev := e.Devices[deviceID]
+	if dev == nil || dev.RevokedAt != nil {
+		e.mu.Unlock()
+		return errRevoked
+	}
+	previous := dev.Label
+	if previous == label {
+		e.mu.Unlock()
+		return nil
+	}
+	dev.Label = label
+	if err := e.saveDevicesLocked(); err != nil {
+		dev.Label = previous
+		e.mu.Unlock()
+		return err
+	}
+	e.mu.Unlock()
+	e.audit("device_renamed", map[string]any{"device_id": deviceID})
+	return nil
+}
+
 func (e *Engine) RevokeDevice(deviceID string) error {
 	if err := e.markDeviceRevoked(deviceID); err != nil {
 		return err

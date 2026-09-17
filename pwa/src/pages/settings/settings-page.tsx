@@ -21,7 +21,7 @@ import {
   TERM_MODE_LABEL,
   visiblePairedDevices,
 } from "../../lib/ui-model";
-import { revokeDevice, revokeSelf } from "../../features/operations/controller";
+import { renameSelf, revokeDevice, revokeSelf } from "../../features/operations/controller";
 import { enablePush, leaveSettings, refreshSettings, selectNetworkMode } from "../../features/settings/actions";
 import { setDefaultComposeLive, setDefaultTermMode } from "../../features/settings/preferences-store";
 import { herdStatusOf } from "../../features/connection/herd-status";
@@ -246,7 +246,13 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
           {!connection.p2pEnabled ? <p className="set-note">{t("settings.networkP2POff")}</p> : null}
           <NetworkModeControl connection={connection} />
         </div>
-        {self ? <SetRow label={t("settings.thisPhone")} value={displayDeviceLabel(self.label || "") || t("settings.pairedPhone")} /> : null}
+        {self ? (
+          <SetNavRow
+            label={t("settings.thisPhone")}
+            value={displayDeviceLabel(self.label || "") || t("settings.pairedPhone")}
+            onClick={() => void renameSelf()}
+          />
+        ) : null}
       </div>
       <AgentQuotaSummary />
       <SetHeading text={t("settings.language")} help={[t("settings.languageNote")]} />

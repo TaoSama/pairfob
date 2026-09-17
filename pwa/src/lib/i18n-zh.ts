@@ -303,6 +303,8 @@ export const zh = {
   "settings.networkP2PFailedVerify": "直连通道打开后未通过安全验证。",
   "settings.networkRelayFailed": "暂时无法切换到 Relay，请稍后重试。",
   "settings.thisPhone": "这台手机",
+  "settings.renamePhone": "给这台手机改名",
+  "settings.renamedPhone": "已改名为 {name}",
   "settings.pairedPhone": "已配对设备",
   "settings.currentComputer": "当前电脑",
   "settings.addComputer": "添加另一台电脑",
