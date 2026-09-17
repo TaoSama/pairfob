@@ -44,6 +44,33 @@ describe("carrying a phone rename to a computer that missed it", () => {
     expect(renamed).toEqual(["Wentao 的手机"]);
   });
 
+  test("reports the applied name so a stale list can be corrected", async () => {
+    boot();
+    const applied = await syncDeviceLabel(
+      [device({ device_id: "dev_phone", self: true, label: "Mac" })],
+      async () => "Wentao 的手机",
+    );
+    expect(applied).toBe("Wentao 的手机");
+  });
+
+  test("reports nothing when the computer refuses the rename", async () => {
+    setPhase("live");
+    setCredential({
+      daemonId: "d_aaaaaaaaaaaaaaaaaaaa", deviceId: "dev_phone",
+      psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
+      relayOrigin: "https://pairfob.com", fp: "fp", label: "Studio", createdAt: 1,
+    });
+    attachLiveSession({
+      isConnected: () => true,
+      renameDevice: async () => { throw new Error("refused"); },
+    } as never);
+    const applied = await syncDeviceLabel(
+      [device({ device_id: "dev_phone", self: true, label: "Mac" })],
+      async () => "Wentao 的手机",
+    );
+    expect(applied).toBeNull();
+  });
+
   test("a computer already using the chosen name is left alone", async () => {
     const renamed = boot();
     await syncDeviceLabel(

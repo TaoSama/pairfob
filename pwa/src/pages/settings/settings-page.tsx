@@ -34,6 +34,8 @@ import { DaemonUpdate } from "../../features/settings/daemon-update-view";
 import { AccountSummary } from "../account/account-summary";
 import { InviteCodeSection } from "./invite-code-section";
 import { settingsNetworkHelp, settingsNetworkP2PFail, settingsNetworkPath } from "../../features/settings/model";
+import { useHerdSessions } from "../../features/herd-sessions/hooks";
+import { openHerdSessionSwitcher } from "../../features/herd-sessions/session-switcher";
 
 const NETWORK_MODE_COPY: Record<NetworkMode, "settings.networkAuto" | "settings.networkP2P" | "settings.networkRelay"> = {
   auto: "settings.networkAuto",
@@ -189,11 +191,12 @@ function useSettingsView() {
   const runtime = useRuntime();
   const preferences = usePreferences();
   const computers = useComputers();
-  return { connection, runtime, preferences, computers };
+  const herdSessions = useHerdSessions();
+  return { connection, runtime, preferences, computers, herdSessions };
 }
 
 export function SettingsContent({ withBack }: { withBack: boolean }) {
-  const { connection, runtime, preferences, computers } = useSettingsView();
+  const { connection, runtime, preferences, computers, herdSessions } = useSettingsView();
   useLang();
   // Project the status row from the same published snapshots the surrounding
   // panel reads. The live handle is the snapshot's opaque identity; a staged
@@ -238,6 +241,13 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
           value={runtime.herdHost || (computers.credential ? computerTitle(computers.credential) : t("settings.currentComputer"))}
           onClick={openComputers}
         />
+        {herdSessions.supported ? (
+          <SetNavRow
+            label={t("settings.session")}
+            value={herdSessions.current ?? t("herdSessions.default")}
+            onClick={openHerdSessionSwitcher}
+          />
+        ) : null}
         <SetRow label={t("settings.status")} value={status.text} tone={status.tone} />
         <SetNavRow label={t("settings.exportConnectionDiagnostics")} value={t("settings.connectionDiagnosticsLocal")} onClick={exportConnectionDiagnostics} />
         <SetRow label={t("settings.networkRtt")} value={settingsNetworkPath(networkInput)} />

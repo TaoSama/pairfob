@@ -22,6 +22,7 @@ import { isDesk } from "../../app/viewport";
 import { acceptDaemonVersion, checkDaemonRelease, markDaemonConfigIncompatible } from "./daemon-update";
 import { refreshAgentQuota } from "../agent-quota/actions";
 import { syncDeviceLabel } from "../operations/controller";
+import { loadHerdSessions } from "../herd-sessions/actions";
 
 /**
  * Settings controller — the feature's one connected adapter for settings reads,
@@ -76,6 +77,7 @@ export function openSettings(): void {
   commitView();
   track("pwa_settings");
   void refreshSettings();
+  void loadHerdSessions();
 }
 
 /**
@@ -127,8 +129,16 @@ export async function refreshSettings(): Promise<void> {
     applyDeviceList(listed, "");
     // A computer that was offline during a rename still calls this phone by its
     // old name; carrying the choice here is what makes one rename reach all of
-    // them without asking the person to repeat it per computer.
-    void syncDeviceLabel(listed);
+    // them without asking the person to repeat it per computer. The list above
+    // was read before that write, so a rename that lands is applied to it.
+    void syncDeviceLabel(listed).then((renamed) => {
+      if (!renamed || !settingsReadStillOwned(request, session)) return;
+      applyDeviceList(
+        listed.map((device) => (device.self && !device.revoked_at ? { ...device, label: renamed } : device)),
+        "",
+      );
+      commitView();
+    });
   } else {
     setDevicesError(t("err.devicesLoad"));
   }

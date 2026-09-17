@@ -344,6 +344,8 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 		e.rpcListDevices(s, id, params)
 	case "RenameDevice":
 		e.rpcRenameDevice(s, id, params)
+	case "ListSessions":
+		go e.rpcListSessions(s, id, params)
 	case "History":
 		e.rpcHistory(s, id, params)
 	case "AgentTrace":

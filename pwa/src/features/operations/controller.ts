@@ -132,23 +132,28 @@ export async function renameSelf(): Promise<void> {
 export async function syncDeviceLabel(
   devices: readonly DeviceSummary[],
   storedLabel: () => Promise<string | null> = readDeviceLabel,
-): Promise<void> {
+): Promise<string | null> {
   const session = liveSession();
-  if (!session) return;
+  if (!session) return null;
   const self = devices.find((device) => device.self && !device.revoked_at);
-  if (!self) return;
+  if (!self) return null;
   let chosen: string | null = null;
   try {
     chosen = await storedLabel();
   } catch {
     // No local store to read, so there is no chosen name to carry.
-    return;
+    return null;
   }
-  if (!chosen || chosen === self.label) return;
+  if (!chosen || chosen === self.label) return null;
   try {
     await session.renameDevice(chosen);
+    // Reported so the caller can correct the list it just read: the rename
+    // landed after that read, and showing the old name until the next visit
+    // would look like the sync had not happened.
+    return chosen;
   } catch {
     // The computer keeps its old copy; the next settings read tries again.
+    return null;
   }
 }
 
