@@ -12,7 +12,6 @@ import {
 import { hashPassword, randomHex, timingSafeEqual, verifyPassword } from "./crypto.ts";
 import {
   bindDevice,
-  bindInstallationDaemons,
   clearAuthDomain,
   consumeClaimProof,
   countUsers,
@@ -197,7 +196,6 @@ async function bootstrap(
     return errorJson(build, 409, "already_initialized", store);
   }
   await putInvite(env.DB, mintInviteCode(), user.user_id, now);
-  await bindInstallationDaemons(env.DB, user.user_id, now);
   await clearAuthDomain(env.DB, ipKey);
 
   return signedIn(env, build, store, user, now, 201);
@@ -239,7 +237,6 @@ async function login(
   // let a source alternate two wrong codes with one correct password forever.
   await releaseFailureBudget(env.DB, reserved);
   await clearAuthDomain(env.DB, ipKey);
-  if (user.role === ROLE_ADMIN) await bindInstallationDaemons(env.DB, user.user_id, now);
   return signedIn(env, build, store, user, now, 200);
 }
 
@@ -398,7 +395,6 @@ async function listDevices(
 ): Promise<Response> {
   const identity = await resolveIdentity(env.DB, req, now);
   if (!identity) return errorJson(build, 401, "unauthenticated", store);
-  if (identity.user.role === ROLE_ADMIN) await bindInstallationDaemons(env.DB, identity.user.user_id, now);
   const rows = await listDevicesByUser(env.DB, identity.user.user_id);
   const devices = [];
   for (const row of rows) {

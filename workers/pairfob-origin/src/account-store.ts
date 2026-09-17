@@ -448,23 +448,3 @@ export async function unbindDevice(db: D1Database, daemonId: string, userId: str
   const res = await db.prepare(DELETE_DEVICE_OWNER_SQL).bind(daemonId, userId).run();
   return (res.meta.changes ?? 0) === 1;
 }
-
-export const BIND_INSTALLATION_DAEMONS_SQL = `
-  INSERT OR IGNORE INTO device_owners (daemon_id, user_id, label, bound_at)
-  SELECT daemon_id, ?, CASE daemon_id
-    WHEN 'd_e64cf84bee9b55c19a87' THEN 'devbox'
-    WHEN 'd_a2a31b2efb50c89f4581' THEN 'devsg'
-    WHEN 'd_c48b9a1b125dc814b4ce' THEN 'devos'
-    WHEN 'd_dbfc16e899be94e4ebfa' THEN 'devbox-prod'
-    ELSE daemon_id END, ?
-  FROM daemons
-  WHERE NOT EXISTS (SELECT 1 FROM device_owners WHERE device_owners.daemon_id = daemons.daemon_id)
-`;
-
-export async function bindInstallationDaemons(db: D1Database, userId: string, now: number): Promise<void> {
-  try {
-    await db.prepare(BIND_INSTALLATION_DAEMONS_SQL).bind(userId, now).run();
-  } catch {
-    // Ignore error if already bound or database unavailable
-  }
-}
