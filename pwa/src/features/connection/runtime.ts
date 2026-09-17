@@ -14,7 +14,6 @@ import { FRIENDLY_ERROR } from "../../lib/notices";
 import { parseRuntimeOperationsConfig } from "../../lib/operations";
 import type { LiveSession, PairResult } from "../../lib/protocol/client";
 import { herdConfigIsCurrent, nextHerdConfigRequest } from "./generations";
-import { computerTitle } from "../../lib/computer-catalog";
 
 export type RuntimeObservationPorts = {
   acceptDaemonVersion(config: unknown): void;
@@ -60,9 +59,7 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
     // The computer's own name wins over the pairing label, which is only ever
     // what the browser that paired it called itself. Same rule as the computer
     // list: two places naming one machine must not disagree.
-    const effectiveHost = credential
-      ? computerTitle({ ...credential, hostname: hostname || credential.hostname })
-      : (hostname || "");
+    const effectiveHost = hostname || credential?.label?.trim() || "";
     batch(() => {
       applyRuntimeIdentity({ herdHost: effectiveHost, runtimeKind });
       setPushEnabled(config.push_enabled === true);
