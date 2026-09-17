@@ -12,7 +12,7 @@ import { setAddingComputer, setComputers, setCredential, attachLiveSession, comp
 import { establish, closeComputerSession } from "../../features/connection/controller";
 import type { LiveSession, PairResult, SessionEvent } from "../../lib/protocol/client";
 import { fingerprint16 } from "../../lib/protocol/hello";
-import { saveCredential, loadCatalog } from "../../lib/credentials";
+import { saveCredential, loadCatalog, rememberWrapKey, readWrapKey } from "../../lib/credentials";
 import { setScreen } from "../../app/navigation-store";
 import { clearNotice } from "../../app/notices-store";
 import { resetTransitionState } from "../../app/transition";
@@ -196,7 +196,7 @@ async function until(what: string, ready: () => boolean, tries = 200): Promise<v
   throw new Error(`timed out waiting for ${what}`);
 }
 
-async function mountAccount(gate: "entry" | "devices"): Promise<HTMLElement> {
+async function mountAccount(gate: "entry" = "entry"): Promise<HTMLElement> {
   act(() => {
     batch(() => {
       setPhase("connect");
@@ -303,7 +303,7 @@ describe("the account gate reaches the page", () => {
   test("a deployment with no account renders the bootstrap form, not sign-in", async () => {
     serve({ "GET /v2/account/state": () => ({ json: { ok: true, initialized: false, user: null } }) });
     act(() => { setAccountInitialized(false); });
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
 
     expect(app.querySelector(".prelude-title")?.textContent).toBe(t("account.title.bootstrap"));
     // The first account's name is not the person's to choose, so it is stated.
@@ -318,7 +318,7 @@ describe("the account gate reaches the page", () => {
   test("a deployment that already has an admin renders sign-in with a way to register", async () => {
     serve({ "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: null } }) });
     act(() => { setAccountInitialized(true); });
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
 
     expect(app.querySelector(".prelude-title")?.textContent).toBe(t("account.title.login"));
     expect(field(app, "username")).toBeTruthy();
@@ -335,7 +335,7 @@ describe("the account gate reaches the page", () => {
 
   test("gate off leaves the application composing as it did before", async () => {
     serve({});
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
     expect(app.querySelector(".account-page")).toBeTruthy();
 
     act(() => { setAccountGate("off"); commitView(); });
@@ -348,7 +348,7 @@ describe("submitting the form", () => {
   test("the submit button stays refused until every field is valid", async () => {
     serve({ "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: null } }) });
     act(() => { setAccountInitialized(true); });
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
     const button = app.querySelector<HTMLButtonElement>(".account-submit")!;
     expect(button.disabled).toBeTrue();
 
@@ -363,7 +363,7 @@ describe("submitting the form", () => {
   test("a leaving field explains itself without complaining mid-typing", async () => {
     serve({ "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: null } }) });
     act(() => { setAccountInitialized(true); });
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
     const username = field(app, "username");
 
     type(username, "A");
@@ -377,10 +377,10 @@ describe("submitting the form", () => {
     expect(username.getAttribute("aria-invalid")).toBe("true");
   });
 
-  test("a real sign-in lands on the device list and never sends the passphrase", async () => {
+  test("a real sign-in leaves the gate and never sends the passphrase", async () => {
     serveSignedIn({ "POST /v2/account/login": () => ({ json: { ok: true, user: ADMIN } }) });
     act(() => { setAccountInitialized(true); });
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
 
     type(field(app, "username"), "admin");
     type(field(app, "password"), "correct horse battery");
@@ -388,7 +388,7 @@ describe("submitting the form", () => {
     // Deriving the origin password is real Argon2id, which runs far longer than
     // any drain of the queue, so the wait is on the request having gone out.
     await until("the sign-in request", () => seen.some((call) => call.path === "/v2/account/login"));
-    await until("the device list", () => appRoot().querySelector(".account-devices-page") !== null);
+    await until("the gate to clear", () => accountStore.get().gate === "off");
     // Landing is not the end of the sign-in: the vault sync trails it, and the
     // "nothing was written" claim below is only worth making once it has run.
     await settle();
@@ -396,8 +396,10 @@ describe("submitting the form", () => {
     const login = seen.find((call) => call.path === "/v2/account/login")!;
     expect((login.body as { password: string }).password).not.toBe("correct horse battery");
     expect((login.body as { password: string }).password).toMatch(/^[0-9a-f]{64}$/);
-    expect(appRoot().querySelector(".account-devices-page")).toBeTruthy();
-    expect(appRoot().querySelector(".account-who")?.textContent).toBe(t("account.signedInAs", { name: "admin" }));
+    // A signed-in phone hands the page back rather than stopping on an account
+    // surface of its own.
+    expect(appRoot().querySelector(".account-page")).toBeNull();
+    expect(accountStore.get().username).toBe("admin");
     // No vault existed, and nothing local to carry up, so nothing was written.
     expect(seen.filter((call) => call.method === "PUT")).toEqual([]);
   }, 30_000);
@@ -408,7 +410,7 @@ describe("submitting the form", () => {
       "POST /v2/account/login": () => ({ status: 401, json: { ok: false, error: { code: "bad_credentials" } } }),
     });
     act(() => { setAccountInitialized(true); });
-    const app = await mountAccount("entry");
+    const app = await mountAccount();
 
     type(field(app, "username"), "admin");
     type(field(app, "password"), "wrong passphrase");
@@ -431,72 +433,70 @@ describe("the device list", () => {
     act(() => {
       batch(() => {
         adoptAccountIdentity({ userId: ADMIN.user_id, username: "admin", role: "admin" });
-        setAccountGate("devices");
       });
     });
   }
 
-  test("an account with no machines is told how to add one", async () => {
+  test("a signed-in phone with no credential is sent to pairing, not to a list", async () => {
     serveSignedIn();
     signedIn();
-    const app = await mountAccount("devices");
-
-    expect(app.querySelector(".account-device-open")).toBeNull();
-    expect(app.textContent).toContain(t("account.devices.empty"));
-    expect(app.querySelector(".account-add-device")?.textContent).toBe(t("account.addDevice"));
-  });
-
-  test("adding a machine hands the page to pairing rather than staying on the gate", async () => {
-    serveSignedIn();
-    signedIn();
-    const app = await mountAccount("devices");
-
-    click(app, ".account-add-device");
+    await mountAccount();
+    await act(async () => { await resumeAccountAtBoot(); });
     await settle();
+
+    // Nothing to resume means nothing to list, so the account plane steps out of
+    // the way and pairing takes over rather than showing a page whose only
+    // content would be a button to leave it.
     expect(accountStore.get().gate).toBe("off");
     expect(appRoot().querySelector(".account-page")).toBeNull();
+    expect(computersStore.get().addingComputer).toBeTrue();
   });
 
-  test("a returning browser lists its machines as locked rather than as absent", async () => {
-    // The cross-browser resume: the session cookie outlived the page, so the
-    // origin knows who this is, but no passphrase was typed and the vault stays
-    // shut. The machines must still be named — a list that looked empty here
-    // would read as "your computers are gone" and send someone to re-pair.
+  test("a reopened browser unseals the vault from the stored wrapping key", async () => {
+    // The cross-device resume: the session cookie outlived the page and no
+    // passphrase was typed. The wrapping key persisted at sign-in is what lets
+    // this reload open the vault, so the machines synced from another device are
+    // usable here instead of merely named.
+    const wrapKey = new Uint8Array(32).fill(7);
+    await rememberWrapKey(wrapKey);
     serve({
       "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: ADMIN } }),
       "GET /v2/account/devices": () => ({
         json: { ok: true, devices: [{ daemon_id: DAEMON_A, label: "desk", bound_at: 1, live: false }] },
       }),
-      // A vault exists whose record this phone holds no wrapping key for.
-      "GET /v2/account/vault": () => ({
-        json: {
-          ok: true,
-          vault: { ciphertext: "AAAA", nonce: "BBBB", kdf: "argon2id.3.65536.1.CCCC.DDDD", version: 4, updated_at: 1 },
-        },
-      }),
+      "GET /v2/account/vault": () => ({ status: 404, json: { ok: false, error: { code: "unbound" } } }),
     });
-    await mountAccount("entry");
-    // Boot's own resume, not a hand-set gate: this is the path a reopened
-    // browser actually takes, and it is what decides the gate and the list.
+    await mountAccount();
     await act(async () => { await resumeAccountAtBoot(); });
     await settle();
 
-    const app = appRoot();
-    const names = [...app.querySelectorAll(".account-device-name")].map((node) => node.textContent);
-    expect(names).toEqual(["desk"]);
-    expect(app.textContent).toContain(t("account.devices.locked"));
-    // Sealed out, so the phone must not have offered the origin a replacement.
-    expect(seen.filter((call) => call.method === "PUT")).toEqual([]);
-    expect(accountStore.get().vaultSealed).toBeTrue();
+    // The key is back in the record, which is the difference between a phone
+    // that can open its vault after a reload and one that cannot.
+    expect(accountStore.get().wrapKey).not.toBeNull();
+    expect(accountStore.get().gate).toBe("off");
+  });
+
+  test("signing out forgets the stored wrapping key", async () => {
+    await rememberWrapKey(new Uint8Array(32).fill(9));
+    serveSignedIn({ "POST /v2/account/logout": () => ({ json: { ok: true } }) });
+    signedIn();
+    await mountAccount();
+
+    await act(async () => { await signOutOfAccount(); });
+    await settle();
+
+    // Leaving it behind would let the next person on this phone reopen the vault
+    // of an account they have just been signed out of.
+    expect(await readWrapKey()).toBeNull();
   });
 
   test("signing out drops the identity and returns to the sign-in form", async () => {
     serveSignedIn({ "POST /v2/account/logout": () => ({ json: { ok: true } }) });
     signedIn();
     act(() => { setAccountDevices([{ daemonId: DAEMON_A, label: "desk", boundAt: 1, live: true }]); });
-    const app = await mountAccount("devices");
+    const app = await mountAccount();
 
-    click(app, ".account-sign-out");
+    await act(async () => { await signOutOfAccount(); });
     await settle();
 
     const record = accountStore.get();
@@ -511,7 +511,7 @@ describe("the device list", () => {
   });
 
   for (const failure of ["network", "server"] as const) {
-    test(`${failure} logout failure preserves identity and shows an error on the device page`, async () => {
+    test(`${failure} logout failure preserves identity and reports the error`, async () => {
       serveSignedIn({ "POST /v2/account/logout": () => {
         if (failure === "network") throw new TypeError("offline");
         return { status: 503, json: { ok: false, error: { code: "internal" } } };
@@ -519,14 +519,14 @@ describe("the device list", () => {
       signedIn();
       setAccountDevices([{ daemonId: DAEMON_A, label: "desk", boundAt: 1, live: true }]);
       const before = accountStore.get();
-      const app = await mountAccount("devices");
+      const app = await mountAccount();
       let result = true;
       await act(async () => { result = await switchAccount(); });
       expect(result).toBeFalse();
       expect(accountStore.get().userId).toBe(before.userId);
       expect(accountStore.get().wrapKey).toEqual(before.wrapKey);
       expect(accountStore.get().devices).toEqual(before.devices);
-      expect(accountStore.get().gate).toBe("devices");
+      expect(accountStore.get().gate).toBe("entry");
       expect(accountStore.get().errorCode).toBe(failure === "network" ? "bad_relay" : "internal");
       expect(app.textContent).toContain(t(failure === "network" ? "account.error.offline" : "account.error.unknown"));
       expect(storageDeletes).toEqual([]);
@@ -570,7 +570,7 @@ describe("the device list", () => {
       signedIn();
       setAccountDevices([{ daemonId: DAEMON_A, label: "desk", boundAt: 1, live: true }]);
       await saveCredential(credential(DAEMON_A));
-      const app = await mountAccount("devices");
+      const app = await mountAccount();
       if (failure === "snapshot-open") snapshotOpenFailure = true;
       else deleteFailureStore = failure;
       let result = true;
@@ -590,9 +590,9 @@ describe("the device list", () => {
   test("switching accounts clears the form the previous person left behind", async () => {
     serveSignedIn({ "POST /v2/account/logout": () => ({ json: { ok: true } }) });
     signedIn();
-    const app = await mountAccount("devices");
+    const app = await mountAccount();
 
-    click(app, ".account-switch");
+    await act(async () => { await switchAccount(); });
     await settle();
 
     expect(accountStore.get().wantsRegister).toBeFalse();

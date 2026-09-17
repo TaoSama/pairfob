@@ -1,15 +1,25 @@
-import { loadCatalog, saveCredential, deleteCredential } from "../../lib/credentials";
-import { decodeCredential, encodeCredential, type StoredCredential } from "../../lib/credentials";
+import {
+  decodeCredential,
+  deleteCredential,
+  encodeCredential,
+  forgetWrapKey,
+  loadCatalog,
+  readWrapKey,
+  rememberWrapKey,
+  saveCredential,
+  type StoredCredential,
+} from "../../lib/credentials";
 import { ProtocolError } from "../../lib/protocol/errors";
 import { pickResumeCredential } from "../../lib/computer-catalog";
-import { resumeComputer } from "../../features/computers/actions";
+import { beginAddComputer, resumeComputer } from "../../features/computers/actions";
 import { setComputers, setCredential } from "../../features/computers/catalog-store";
 import { clearLiveConnection, closeComputerSession, reloadComputers } from "../../features/connection/controller";
 import { phase as currentPhase } from "../../features/connection/connection-store";
 import { deleteSessionSnapshot } from "../../features/connection/snapshot-storage";
 import {
-  accountGate,
   accountVaultSealed,
+  accountWrapKey,
+  adoptWrapKey,
   ownedDaemonIds,
   setAccountError,
   setAccountGate,
@@ -69,6 +79,16 @@ export async function resumeAccountAtBoot(): Promise<void> {
   }
   const account = signedInAccount();
   if (account) {
+    // The wrapping key outlives the page so this reload can open the vault
+    // without the passphrase. Restoring it before the sync is what makes the
+    // machines synced from another device usable here rather than merely named.
+    try {
+      const wrapKey = await readWrapKey();
+      if (wrapKey) adoptWrapKey(wrapKey);
+    } catch {
+      // A key that cannot be read is a sealed vault, which syncAccountVault
+      // already reports; it is not a reason to abandon the sync.
+    }
     await syncAccountVault(null);
   } else {
     setAccountGate("entry");
@@ -88,12 +108,11 @@ export async function openAccountGate(): Promise<void> {
     return;
   }
   const account = signedInAccount();
-  setAccountGate(account ? "devices" : "entry");
+  if (!account) setAccountGate("entry");
   commitView();
   // A cookie that outlived the page is a real session, so a returning phone goes
-  // straight to its machines. Its vault stays shut until a passphrase opens it:
-  // the key never left this device, so the list can name the machines it owns
-  // while saying they are locked.
+  // straight back to its machines; the sync decides which one and puts the
+  // account surface away.
   if (account) await syncAccountVault(null);
 }
 
@@ -114,6 +133,17 @@ export async function submitAccountEntry(submission: AccountSubmission): Promise
     setAccountError(codeOf(error));
     commitView();
     return false;
+  }
+  // Keep the wrapping key this sign-in derived, so the next reload opens the
+  // vault without asking for the passphrase again.
+  const wrapKey = accountWrapKey();
+  if (wrapKey) {
+    try {
+      await rememberWrapKey(wrapKey);
+    } catch {
+      // A key that cannot be stored only costs this phone a passphrase prompt
+      // on its next reload; the session it just established still stands.
+    }
   }
   commitView();
   await syncAccountVault(submission.password);
@@ -153,14 +183,15 @@ export async function syncAccountVault(password: string | null): Promise<void> {
     setAccountSyncFailed(true);
   }
   const catalog = await loadCatalog(location.origin);
-  if (catalog.credentials.length > 0) {
-    setAccountGate("off");
-    const pick = pickResumeCredential(catalog.credentials, catalog.lastUsedDaemonId);
-    if (pick && currentPhase() !== "live" && currentPhase() !== "resuming") {
-      void resumeComputer(pick);
-    }
+  // A signed-in phone goes straight back to the machine it used last. With no
+  // credential to resume there is nothing to list, so it lands on pairing
+  // rather than on a page whose only content would be a button to leave it.
+  setAccountGate("off");
+  const pick = pickResumeCredential(catalog.credentials, catalog.lastUsedDaemonId);
+  if (pick) {
+    if (currentPhase() !== "live" && currentPhase() !== "resuming") void resumeComputer(pick);
   } else {
-    setAccountGate("devices");
+    beginAddComputer();
   }
   commitView();
 }
@@ -257,6 +288,11 @@ export async function signOutOfAccount(): Promise<boolean> {
   // Retire both the active transport and the account's parked pool entries.
   // These lifecycle APIs close relay/P2P and invalidate pending session reads.
   clearLiveConnection();
+  // The stored key goes with the session it belonged to: leaving it behind would
+  // let the next person on this phone reopen the vault of an account they have
+  // just been signed out of. It is dropped with the rest of the local state, so
+  // a refused sign-out keeps it exactly as it keeps the credentials.
+  await forgetWrapKey();
   for (const daemonId of owned) closeComputerSession(daemonId);
   setCredential(null);
   setComputers([]);
@@ -302,20 +338,9 @@ export function leaveAccountGate(): void {
   commitView();
 }
 
-export function showAccountDevices(): void {
-  if (accountGate() === "off") return;
-  setAccountGate("devices");
-  commitView();
-}
-
 export function chooseRegisterForm(wantsRegister: boolean): void {
   setAccountWantsRegister(wantsRegister);
   commitView();
-}
-
-/** Re-read the device list and vault without asking for the passphrase again. */
-export async function refreshAccountDevices(): Promise<void> {
-  await syncAccountVault(null);
 }
 
 function codeOf(error: unknown): string {

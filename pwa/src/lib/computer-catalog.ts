@@ -14,11 +14,18 @@ export function credentialIsBurned(code: string | undefined): boolean {
   return typeof code === "string" && BURNED_CODES.has(code);
 }
 
+/**
+ * What to call a machine in the interface.
+ *
+ * Only the hostname names a computer, because only the computer reports it. The
+ * label is whatever the browser that paired it called itself, so using it meant
+ * every machine paired from one browser carried that browser's name — five
+ * computers all called "Mac", which is the opposite of what a list of computers
+ * is for. A machine that has not yet reported a hostname is unnamed rather than
+ * borrowing a name from the phone.
+ */
 export function computerTitle(pair: PairResult): string {
-  const label = pair.label?.trim();
-  if (label) return label;
-  const host = pair.hostname?.trim();
-  return host || t("computer.unnamed");
+  return pair.hostname?.trim() || t("computer.unnamed");
 }
 
 export function pickResumeCredential(credentials: PairResult[], lastUsedDaemonId: string | null): PairResult | null {

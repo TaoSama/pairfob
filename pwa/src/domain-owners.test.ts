@@ -89,6 +89,9 @@ describe("domain owner manifest", () => {
     }
   });
 
+  // `app/browser-history` sits beside `app/transition` for the same reason: it
+  // holds no domain state, only a wrapper over window.history, so an owner
+  // reaching for it is not reaching into another owner's data.
   test("owners import only the shared model primitive, read-only libs and (App) the transition", () => {
     for (const id of OWNER_IDS) {
       const isAppOwner = id.startsWith("app/");
@@ -98,7 +101,7 @@ describe("domain owner manifest", () => {
           dep.startsWith(SHARED_MODEL) ||
           dep.startsWith(LIB) ||
           dep === "features/board/model/snapshot-state" ||
-          (isAppOwner && dep === "app/transition");
+          (isAppOwner && (dep === "app/transition" || dep === "app/browser-history"));
         expect(ok, `${id} -> ${dep}`).toBe(true);
       }
     }

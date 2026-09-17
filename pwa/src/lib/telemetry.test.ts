@@ -10,7 +10,11 @@ import {
 
 afterEach(() => {
   resetTelemetry();
-  setTelemetrySender(null);
+  // Not `null`: the sender is module state shared by the whole suite, and the
+  // default one reaches the network. Restoring it here made later files post
+  // real telemetry, whose in-flight request then failed whichever test happened
+  // to tear its DOM down next.
+  setTelemetrySender(() => {});
 });
 
 describe("PWA telemetry", () => {

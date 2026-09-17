@@ -22,6 +22,9 @@ const DB_VERSION = 2;
 const STORE = "credentials";
 const SETTINGS = "settings";
 const LAST_USED_KEY = "last_used_daemon_id";
+const WRAP_KEY_KEY = "account_wrap_key";
+/** Argon2id output width; a stored value of any other length is not this key. */
+const WRAP_KEY_BYTES = 32;
 
 export type CredentialCatalog = {
   credentials: PairResult[];
@@ -219,6 +222,32 @@ async function writeSetting(key: string, value: unknown): Promise<void> {
 export async function rememberLastUsed(daemonId: string): Promise<void> {
   if (!validDaemonId(daemonId)) return;
   await writeSetting(LAST_USED_KEY, daemonId);
+}
+
+/**
+ * The passphrase-derived wrapping key, kept so a reload can reopen the vault.
+ *
+ * Without this the key lives only in memory: every reload sealed the vault and
+ * the machines synced from it became unreachable until the passphrase was typed
+ * again, which is the one thing an account is meant to spare a returning phone.
+ *
+ * It sits beside the credentials it unlocks, and those already hold each
+ * machine's `device_psk` in the clear, so persisting it grants no reach the
+ * database did not already give. Signing out clears it with them.
+ */
+export async function rememberWrapKey(wrapKey: Uint8Array): Promise<void> {
+  if (wrapKey.length !== WRAP_KEY_BYTES) return;
+  await writeSetting(WRAP_KEY_KEY, b64url(wrapKey));
+}
+
+export async function readWrapKey(): Promise<Uint8Array | null> {
+  const stored = await readSetting(WRAP_KEY_KEY);
+  if (typeof stored !== "string") return null;
+  return exactB64(stored, WRAP_KEY_BYTES);
+}
+
+export async function forgetWrapKey(): Promise<void> {
+  await writeSetting(WRAP_KEY_KEY, undefined);
 }
 
 async function readCredentials(origin: string): Promise<PairResult[]> {

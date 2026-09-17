@@ -1,7 +1,7 @@
 import { useCallback, useState, useSyncExternalStore } from "react";
 import { langRevision, subscribeLang } from "../../lib/i18n";
 import { useAccount } from "../../features/account/hooks";
-import { AccountDevicesView, AccountEntryView } from "../../features/account/account-view";
+import { AccountEntryView } from "../../features/account/account-view";
 import {
   accountEntryModel,
   submissionFor,
@@ -12,15 +12,8 @@ import {
 import {
   chooseRegisterForm,
   claimPairedDevice,
-  leaveAccountGate,
-  refreshAccountDevices,
-  showAccountDevices,
-  signOutOfAccount,
   submitAccountEntry,
-  switchAccount,
 } from "./account-controller";
-import { beginAddComputer, resumeComputer } from "../../features/computers/actions";
-import { computers } from "../../features/computers/catalog-store";
 
 /**
  * Account page composition.
@@ -54,44 +47,6 @@ export function AccountScreen() {
   const onBlur = useCallback((field: AccountField) => {
     setTouched((current) => (current.includes(field) ? current : [...current, field]));
   }, []);
-
-  if (account.gate === "devices") {
-    return (
-      <AccountDevicesView
-        username={account.username ?? ""}
-        isAdmin={account.role === "admin"}
-        devices={account.devices}
-        busy={account.busy}
-        // Signed in without a vault key: the machines are known and unusable
-        // until a passphrase reopens them, which the list says rather than
-        // pretending they are simply absent.
-        locked={account.vaultVersion > 0 && account.vaultKey === null}
-        syncFailed={account.syncFailed}
-        errorCode={account.errorCode}
-        onAddDevice={() => {
-          leaveAccountGate();
-          beginAddComputer();
-        }}
-        onUseDevice={(daemonId) => {
-          const pair = computers().find((item) => item.daemonId === daemonId);
-          if (!pair) {
-            leaveAccountGate();
-            beginAddComputer();
-            return;
-          }
-          leaveAccountGate();
-          void resumeComputer(pair);
-        }}
-        onSignOut={() => void signOutOfAccount()}
-        onSwitch={() => {
-          setDraft(EMPTY_DRAFT);
-          setTouched([]);
-          void switchAccount();
-        }}
-        onRetry={() => void refreshAccountDevices()}
-      />
-    );
-  }
 
   const model = accountEntryModel({
     state: account.initialized === null ? null : {
@@ -132,4 +87,4 @@ export function AccountScreen() {
   );
 }
 
-export { claimPairedDevice, showAccountDevices };
+export { claimPairedDevice };

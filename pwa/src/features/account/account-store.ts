@@ -29,7 +29,7 @@ import type { AccountRole, BoundDevice } from "../../lib/account-api";
  * or adds one. It defaults to `off` so a deployment that never reached the
  * account plane composes exactly as it did before.
  */
-export type AccountGate = "off" | "entry" | "devices";
+export type AccountGate = "off" | "entry";
 
 export type AccountRecord = {
   /** Null until `/state` answers, so the entry form does not flash before then. */
@@ -128,7 +128,6 @@ export function setAccountSession(account: SignedInAccount, wrapKey: Uint8Array)
     record.errorCode = null;
     record.wantsRegister = false;
     record.syncFailed = false;
-    if (record.gate !== "off") record.gate = "devices";
   });
 }
 
@@ -191,7 +190,6 @@ export function adoptAccountIdentity(account: SignedInAccount): void {
       record.wrapKey = null;
       record.vaultKey = null;
     }
-    if (record.gate !== "off") record.gate = "devices";
   });
 }
 
@@ -305,4 +303,11 @@ export function signedInAccount(): SignedInAccount | null {
 
 export function ownedDaemonIds(): string[] {
   return read().devices.map((device) => device.daemonId);
+}
+
+/** Reinstate a wrapping key read back from storage, without touching identity. */
+export function adoptWrapKey(wrapKey: Uint8Array): void {
+  write((record) => {
+    record.wrapKey = wrapKey;
+  });
 }
