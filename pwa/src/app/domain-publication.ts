@@ -1,6 +1,7 @@
 import { batch, beginPublicationTransaction, endPublicationTransaction, flushNotifications,
   inPublicationTransaction, type DomainStore } from "../shared/model/domain-store";
 import { boardStore } from "../features/board/layout-store";
+import { accountStore } from "../features/account/account-store";
 import { capabilitiesStore } from "../features/operations/capabilities-store";
 import { chatStore } from "../features/session/chat/trace-store";
 import { composeStore } from "../features/session/compose-store";
@@ -30,6 +31,7 @@ import { sessionStore } from "../features/session/session-store";
 export type AnyDomainStore = DomainStore<object, never>;
 
 export const domainStores: readonly AnyDomainStore[] = Object.freeze([
+  accountStore,
   connectionStore,
   computersStore,
   pairingStore,

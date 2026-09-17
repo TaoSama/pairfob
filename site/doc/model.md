@@ -7,7 +7,7 @@ description: Opening the phone is the session already running on the computer. N
 
 Pairfob is not another terminal in the browser, and it is not remote desktop. The Herdr session on the computer is the one the phone opens. Both sides see one screen; either side counts.
 
-Agents still run on your computer. `pairfob.com` only carries messages. It does not run agents and does not see the screen.
+Agents still run on your computer. `pair.taoai.site` only carries messages. It does not run agents and does not see the screen.
 
 ## The loop to keep
 

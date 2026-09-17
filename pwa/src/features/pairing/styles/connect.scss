@@ -273,6 +273,15 @@ dialog.scanner-modal::backdrop { background: #04060ad9; backdrop-filter: blur(5p
 
 .field-count.ok { color: var(--ok); }
 
+/* Advisory, not a rejection: muted like the counter rather than error-toned,
+   because the passphrase it describes is still accepted. */
+.field-hint {
+  margin: 8px 0 0;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}
+
 input[type="text"] {
   display: block;
   width: 100%;

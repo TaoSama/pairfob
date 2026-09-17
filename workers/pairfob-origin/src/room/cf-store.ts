@@ -200,4 +200,24 @@ export class CfStore implements RoomStore {
     const rows = this.listBinds();
     for (const r of rows) if (!liveRouteIds.has(r.route_id)) this.deleteBind(r.route_id);
   }
+
+  recordGateAttempt(at: number, ok: boolean): void {
+    this.ensureSchema();
+    this.exec("INSERT INTO gate_attempts (at, ok) VALUES (?, ?)", at, ok ? 1 : 0);
+  }
+
+  gateFailuresSince(since: number): { count: number; lastAt: number } {
+    this.ensureSchema();
+    const rows = this.exec<{ count: number; lastAt: number | null }>(
+      "SELECT COUNT(*) AS count, MAX(at) AS lastAt FROM gate_attempts WHERE at >= ? AND ok = 0",
+      since,
+    ).toArray();
+    const row = rows[0];
+    return { count: row?.count ?? 0, lastAt: row?.lastAt ?? 0 };
+  }
+
+  pruneGateAttempts(before: number): void {
+    this.ensureSchema();
+    this.exec("DELETE FROM gate_attempts WHERE at < ?", before);
+  }
 }

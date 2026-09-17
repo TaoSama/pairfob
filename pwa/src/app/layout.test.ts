@@ -5,6 +5,7 @@ function input(overrides: Partial<LayoutInput> = {}): LayoutInput {
   return {
     phase: "live",
     screen: "home",
+    accountGate: "off",
     fullTerminal: false,
     agentChat: false,
     desk: false,

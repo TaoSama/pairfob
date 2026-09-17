@@ -165,7 +165,7 @@ func runDaemon(store *state.Store, sock string) error {
 	}
 	go eng.MonitorPush(nil, 2*time.Second)
 
-	if err := announceStartup(eng, sock, getenv("PAIRFOB_PAIR_CODE", "")); err != nil {
+	if err := startPairingGate(eng, sock, getenv("PAIRFOB_PAIR_PASSWORD", "")); err != nil {
 		return err
 	}
 
@@ -232,6 +232,37 @@ func announceStartup(eng *daemon.Engine, sock, explicitCode string) error {
 	default:
 		fmt.Printf("Pairfob is running. %d devices paired. Pair another: pairfob pair\n", n)
 	}
+	return nil
+}
+
+// startPairingGate publishes the passphrase gate if there is one, and falls
+// back to the one-use pairing announcement if there is not.
+//
+// The stored gate is honoured even when PAIRFOB_PAIR_PASSWORD is unset, which
+// is the whole point of persisting it: after `pairfob gate set` once, every
+// later start comes up with the gate already open, so a phone only has to open
+// the page and type the passphrase. Without this the gate would silently do
+// nothing until the operator re-exported the environment variable.
+func startPairingGate(eng *daemon.Engine, sock, password string) error {
+	if password != "" {
+		if _, err := eng.SetGatePassword(password); err != nil {
+			return fmt.Errorf("pairing password: %w", err)
+		}
+	} else {
+		_, found, err := eng.LoadGate()
+		if err != nil {
+			return fmt.Errorf("pairing gate: %w", err)
+		}
+		if !found {
+			return announceStartup(eng, sock, getenv("PAIRFOB_PAIR_CODE", ""))
+		}
+	}
+	offer, err := eng.OpenPasswordGate()
+	if err != nil {
+		return fmt.Errorf("open password gate: %w", err)
+	}
+	log.Printf("password pairing gate enabled pair_ref=%s", offer.Ref)
+	fmt.Printf("Pairfob is running. Pair a device with the pairing passphrase.\n")
 	return nil
 }
 

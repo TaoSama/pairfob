@@ -1,0 +1,272 @@
+/* --- Account entry and device list -----------------------------------------
+   Aligns with the Pairfob "Signal" design system:
+   Layered dark surfaces (#0a0c10 / #12161d / #1a2029 / #0e1218),
+   electric blue accent (#6ea8fe), SF Mono for codes, 14px/16px radiuses,
+   and 52px touch-first button/input geometry.
+   ----------------------------------------------------------------------------- */
+
+.account-page {
+  position: relative;
+  max-width: 26rem;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: max(8vh, calc(env(safe-area-inset-top, 0px) + 40px)) 22px calc(40px + env(safe-area-inset-bottom, 0px));
+}
+
+.account-page .prelude-title {
+  margin: 18px 0 8px;
+  font-size: 1.7rem;
+  font-weight: 750;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  color: var(--ink);
+}
+
+.account-page .lede {
+  color: var(--muted);
+  font-size: var(--text-subhead);
+  line-height: 1.6;
+  margin: 0 0 22px;
+}
+
+.account-form {
+  display: block;
+  margin-top: 4px;
+}
+
+.account-form .field {
+  display: block;
+  margin: 0 0 16px;
+}
+
+.account-form .field-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 7px;
+}
+
+.account-form .field-label {
+  font-size: var(--text-body);
+  font-weight: 550;
+  color: var(--muted);
+}
+
+.account-form input[type="text"],
+.account-form input[type="password"] {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: #0e1218;
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: var(--text-subhead);
+  font-weight: 500;
+  line-height: 1.3;
+  letter-spacing: 0.02em;
+  transition: border-color var(--dur-1) var(--ease), box-shadow var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.account-form input[type="text"]:focus,
+.account-form input[type="password"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: var(--focus-ring);
+  background: #11161e;
+}
+
+.account-form input[type="text"]:disabled,
+.account-form input[type="password"]:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+/* The bootstrap account's name is fixed, so it is stated rather than asked for. */
+.account-fixed-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 50px;
+  margin: 0 0 16px;
+  padding: 0 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+}
+
+.account-username {
+  font: 600 1rem/1 var(--mono);
+  color: var(--accent);
+  letter-spacing: 0.06em;
+  background: rgba(110, 168, 254, 0.08);
+  padding: 4px 10px;
+  border-radius: var(--r-sm);
+  border: 1px solid rgba(110, 168, 254, 0.2);
+}
+
+/* The invite code is four letters and spaced as a distinct visual token. */
+.account-code-input {
+  text-align: center;
+  text-transform: uppercase;
+  letter-spacing: 0.35em !important;
+  font-family: var(--mono) !important;
+  font-size: 1.3rem !important;
+  font-weight: 600 !important;
+}
+
+.field-hint {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.account-submit {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 8px;
+  border-radius: 14px;
+  font-size: 1rem;
+  font-weight: 650;
+  background: var(--accent);
+  color: var(--accent-ink);
+  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+}
+
+.account-submit:active:not(:disabled) {
+  transform: scale(0.98);
+  background: var(--accent-deep);
+}
+
+.account-switch-form {
+  width: 100%;
+  min-height: 44px;
+  margin-top: 10px;
+  border-radius: var(--r-md);
+  color: var(--accent);
+  font-weight: 550;
+}
+
+.account-page .trust {
+  margin-top: auto;
+  padding-top: 24px;
+  text-align: center;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  letter-spacing: 0.02em;
+}
+
+/* --- Devices view ---------------------------------------------------------- */
+
+.account-identity {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.account-who {
+  margin: 0;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.account-device-list {
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.account-device {
+  display: block;
+}
+
+.account-device-open {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-height: 54px;
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-align: left;
+  transition: background var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+
+.account-device-open:hover {
+  background: var(--surface-2);
+  border-color: rgba(110, 168, 254, 0.3);
+}
+
+.account-device-open:active {
+  background: #232c38;
+  transform: scale(0.99);
+}
+
+.account-device-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--text-subhead);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.account-add-device {
+  width: 100%;
+  min-height: 52px;
+  margin-top: 18px;
+  border-radius: 14px;
+  font-weight: 650;
+}
+
+.account-session-controls {
+  display: flex;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+}
+
+.account-session-controls .btn {
+  flex: 1 1 0;
+  min-height: 44px;
+  border-radius: var(--r-md);
+  font-size: var(--text-body);
+}
+
+/* --- Invite code in Settings ---------------------------------------------- */
+
+.invite-code {
+  font: 600 1.5rem/1 var(--mono);
+  letter-spacing: 0.35em;
+  text-indent: 0.35em;
+  color: var(--accent);
+}
+
+.invite-rotate {
+  min-height: 44px;
+}

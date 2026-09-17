@@ -191,9 +191,9 @@ func TestGuardedSendAndStalePrompt(t *testing.T) {
 	if err == nil || err.Error() != "stale_prompt" {
 		t.Fatalf("want stale_prompt got %v", err)
 	}
-	_, err = ph2.RPC("PaneRead", map[string]any{"pane_id": "w0:p1", "source": "recent", "format": "text", "lines": 400})
+	_, err = ph2.RPC("PaneRead", map[string]any{"pane_id": "w0:p1", "source": "invalid_source", "format": "text", "lines": 400})
 	if err == nil {
-		t.Fatal("recent should be forbidden")
+		t.Fatal("invalid source should be forbidden")
 	}
 }
 

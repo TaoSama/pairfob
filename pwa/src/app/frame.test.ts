@@ -166,7 +166,7 @@ describe("the frame publishes owned data immutably and handles by identity", () 
   test("the layout matches the pure composition for the same domains", () => {
     const frame = prepareFrame();
     expect(frame.layout).toEqual(computeLayout({
-      phase: "live", screen: "pane", fullTerminal: false, agentChat: false, desk: false,
+      phase: "live", screen: "pane", accountGate: "off", fullTerminal: false, agentChat: false, desk: false,
       hasSelectedPane: true, termFontPx: termFontPx(), operationBusy: false,
     }));
   });
@@ -194,7 +194,7 @@ describe("the frame publishes owned data immutably and handles by identity", () 
     const handle = session();
     const input = {
       layout: computeLayout({
-        phase: "live", screen: "pane", fullTerminal: false, agentChat: true, desk: false,
+        phase: "live", screen: "pane", accountGate: "off", fullTerminal: false, agentChat: true, desk: false,
         hasSelectedPane: true, termFontPx: 12, operationBusy: false,
       }),
       session: { kind: "chat" as const, paneId: "p1", incarnation: 1 },

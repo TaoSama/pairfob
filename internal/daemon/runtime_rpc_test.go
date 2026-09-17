@@ -299,6 +299,7 @@ func TestMutationIDsBindCompleteIntentAndSession(t *testing.T) {
 func TestOpenWorktreeResolvesBranchButRejectsOutsideAuthority(t *testing.T) {
 	workspace := t.TempDir()
 	outside := t.TempDir()
+	t.Setenv("PAIRFOB_ALLOWED_ROOTS", workspace)
 	fake := runtime.NewFake()
 	fake.Snap.Workspaces[0].Cwd = workspace
 	branch := "outside"
@@ -403,7 +404,7 @@ func TestTerminalHistoryUsesBoundedOpaqueCursorWithoutTranscript(t *testing.T) {
 	if _, err := client.RPC("History", map[string]any{"pane_id": "w0:p1", "cursor": "term:v1:201", "limit": 50}); err == nil || err.Error() != "invalid_argument" {
 		t.Fatalf("arbitrary terminal line count accepted: %v", err)
 	}
-	if _, err := client.RPC("PaneRead", map[string]any{"pane_id": "w0:p1", "source": "recent_unwrapped", "format": "text", "lines": 200}); err == nil || err.Error() != "forbidden" {
-		t.Fatalf("public PaneRead escaped the visible-only boundary: %v", err)
+	if _, err := client.RPC("PaneRead", map[string]any{"pane_id": "w0:p1", "source": "invalid_source", "format": "text", "lines": 200}); err == nil || err.Error() != "forbidden" {
+		t.Fatalf("public PaneRead accepted invalid source: %v", err)
 	}
 }

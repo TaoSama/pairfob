@@ -1,5 +1,6 @@
 import { appRoot } from "../../app/dom-root";
 import { commitView } from "../../app/host";
+import { notifyDevicePaired } from "../../app/device-claim";
 import {
   applyPairingFragment, clearPairingFragment, originProtocol, pairingFragment, phase, setPhase, wsURL,
 } from "../connection/connection-store";
@@ -8,6 +9,7 @@ import {
 } from "../computers/catalog-store";
 import {
   pairAbortHandle, setPairAbort, setPairAwaitingApproval, setPairCodeDraft, setPairFailure, setPairManualOpen,
+  setPairPasswordDraft, setPairPasswordLocDraft, setPairPasswordOpen, setPairPasswordVisible,
 } from "./form-store";
 import { clearNotice, showError, showStatus } from "../../app/notices-store";
 import { batch, type DomainView } from "../../shared/model/domain-store";
@@ -17,12 +19,13 @@ import type { PairingRecord } from "./form-store";
 import { cancelAddComputer, resumeComputer } from "../../features/computers/actions";
 import { FRIENDLY_ERROR, messageOf } from "../../lib/notices";
 import { t } from "../../lib/i18n";
-import { fragmentUsableOnOrigin, parseCodeAndLocator, parsePairingCode, resolveHandPairing } from "../../lib/pairing-input";
+import { fragmentUsableOnOrigin, parseCodeAndLocator, parsePairingCode, parsePairLocator, resolveHandPairing } from "../../lib/pairing-input";
+import { normalizePassword, type PasswordRejection } from "../../lib/pairing-password";
 import { requestPairIntent } from "../../lib/pair-intent";
 import { PairingScanError, scanPairingCode } from "../../lib/pairing-scanner";
 import { normalizeCrockford } from "../../lib/protocol/bytes";
 import { pairOverWS, ProtocolError, type PairInput } from "../../lib/protocol/client";
-import { friendlyDeviceLabel, pairErrorField, shouldForgetPairFragment, type PairErrorField, type PairStepKey } from "../../lib/ui-model";
+import { friendlyDeviceLabel, pairErrorField, passwordErrorField, shouldForgetPairFragment, type PairErrorField, type PairStepKey } from "../../lib/ui-model";
 import { saveCredential } from "../../lib/credentials";
 import { track } from "../../lib/telemetry";
 import type { ConnectNotice, ConnectViewInput } from "./model";
@@ -115,8 +118,136 @@ export async function onPairSubmit(event: Event): Promise<void> {
   await beginPairing(String(data.get("code") || ""));
 }
 
+/** Local passphrase rejections carry the measured byte count. */
+function passwordRejectionCopy(error: PasswordRejection, bytes: number): string {
+  if (error === "password_too_long") return t("err.passwordLong", { n: bytes });
+  if (error === "password_too_short") return t("err.passwordShort", { n: bytes });
+  return t("err.passwordInvalid");
+}
+
 export function setPairCode(code: string): void {
   setPairCodeDraft(code);
+}
+
+export function setPairPassword(password: string): void {
+  setPairPasswordDraft(password);
+}
+
+export function setPairPasswordLoc(loc: string): void {
+  setPairPasswordLocDraft(loc);
+}
+
+export function togglePairPasswordVisible(visible: boolean): void {
+  setPairPasswordVisible(visible);
+}
+
+/** Opening the passphrase rail closes the code rail: one secret at a time. */
+export function setPasswordPairOpen(open: boolean): void {
+  batch(() => {
+    setPairPasswordOpen(open);
+    if (open) setPairManualOpen(false);
+  });
+}
+
+/**
+ * Passphrase submit. The gate is a persistent slot keyed by a stored pair_ref,
+ * so this reuses the whole code path and differs only in which secret feeds
+ * SPAKE2+ — the passphrase never reaches the relay, only its PAKE shares do.
+ */
+export async function beginPasswordPairing(rawPassword: string, rawLoc: string): Promise<void> {
+  if (phase() === "pairing") return;
+  claimPairingAttempt();
+  const work = currentWork();
+  const page = pairingPageOwner();
+  setPairFailure(null, null);
+
+  const checked = normalizePassword(rawPassword);
+  if (!checked.ok) {
+    rejectLocal("password", passwordRejectionCopy(checked.error, checked.bytes), work);
+    return;
+  }
+  const loc = parsePairLocator(rawLoc);
+  if (!loc) {
+    rejectLocal("passwordLoc", FRIENDLY_ERROR.locator_required, work);
+    return;
+  }
+  pairAbortHandle()?.abort();
+  const abort = new AbortController();
+  claimPairingTransport(page, abort);
+  batch(() => {
+    setPairAbort(abort);
+    setPairAwaitingApproval(false);
+    setPairFailure(null, null);
+    setPhase("pairing");
+    clearNotice();
+  });
+  if (work !== currentWork()) {
+    clearPairingTransport(abort);
+    return;
+  }
+  track("pwa_pairing_start", { extra: "password" });
+  try {
+    const intent = await requestPairIntent(loc, fetch, abort.signal);
+    if (abort.signal.aborted || work !== currentWork()) {
+      throw new ProtocolError("pairing_cancelled", t("err.pairing_cancelled"));
+    }
+    const relay = wsURL({ daemonId: intent.daemonId, pairTicket: intent.pairTicket });
+    const pair = await pairOverWS(relay, { pair_ref: intent.pairRef }, checked.password, {
+      protocol: originProtocol(),
+      label: friendlyDeviceLabel(navigator.userAgent),
+      secret: "password",
+      onAwaitApproval: () => {
+        if (work !== currentWork()) return;
+        setPairAwaitingApproval(true);
+        showStatus(t("pair.verified"), true);
+      },
+      signal: abort.signal,
+    });
+    if (work !== currentWork()) return;
+    await saveCredential(pair);
+    if (work !== currentWork()) return;
+    batch(() => {
+      setPairAwaitingApproval(false);
+      if (pairAbortHandle() === abort) setPairAbort(null);
+      // The passphrase leaves the store the moment it is no longer needed.
+      setPairPasswordOpen(false);
+      setPairPasswordLocDraft("");
+      setPairFailure(null, null);
+      setCredential(pair);
+      setAddingComputer(false);
+    });
+    clearPairingTransport(abort);
+    track("pwa_pairing_result", { result: "ok", extra: "password" });
+    notifyDevicePaired(pair.daemonId, pair.label || null);
+    await resumeComputer(pair);
+  } catch (error) {
+    if (!pairingErrorStillOwned(work, abort, page)) return;
+    const code = error instanceof ProtocolError ? error.code : "";
+    track("pwa_pairing_result", { result: code || "failed", extra: "password" });
+    if (code === "pairing_cancelled") {
+      landCancelledPairing(abort, work);
+      return;
+    }
+    setPairAwaitingApproval(false);
+    if (pairAbortHandle() !== abort) return;
+    batch(() => {
+      clearPairingTransport(abort);
+      setPairAbort(null);
+    });
+    if (pairingWorkId() !== work || phase() !== "pairing") return;
+    // A wrong passphrase is retryable against the same gate, so the rail keeps
+    // the passphrase field open and the failure lands on it rather than on the
+    // pairing-code input the operator never touched.
+    const target: PairErrorField = passwordErrorField(code);
+    batch(() => {
+      setPairFailure(target, "code");
+      setPairPasswordOpen(true);
+      setPhase("connect");
+      showError(messageOf(error), true);
+    });
+    commitView();
+    focusPairField(target, work);
+  }
 }
 
 export function setManualPairOpen(open: boolean): void {
@@ -210,6 +341,11 @@ export async function beginPairing(rawCode: string): Promise<void> {
     });
     clearPairingTransport(abort);
     track("pwa_pairing_result", { result: "ok", extra: scanned ? "qr" : "manual" });
+    // Announce before resuming. Claiming waits on somebody confirming at the
+    // computer, so it runs alongside the session this pairing just earned
+    // rather than delaying it; the seam is empty unless an account page filled
+    // it, which is what keeps pairing usable without an account.
+    notifyDevicePaired(pair.daemonId, pair.label || null);
     await resumeComputer(pair);
   } catch (error) {
     if (!pairingErrorStillOwned(work, abort, page)) return;
@@ -409,6 +545,10 @@ export function connectPageInput(desk: boolean, notice: ConnectNotice | null, sn
     pairErrorTarget: pairing.pairErrorTarget,
     pairFailedStep: pairing.pairFailedStep,
     pairAwaitingApproval: pairing.pairAwaitingApproval,
+    pairPasswordDraft: pairing.pairPasswordDraft,
+    pairPasswordOpen: pairing.pairPasswordOpen,
+    pairPasswordVisible: pairing.pairPasswordVisible,
+    pairPasswordLocDraft: pairing.pairPasswordLocDraft,
     notice,
     desk,
   };

@@ -168,7 +168,7 @@ describe("react complete-terminal shell", () => {
     const host = root.querySelector(".full-terminal-host");
     const pad = root.querySelector(".full-terminal-pad");
     expect([...root.children].map((el) => el.className.split(" ")[0])).toEqual(["chrome", "full-terminal-host", "full-terminal-pad"]);
-    expect(host?.contains(root.querySelector(".full-terminal-scroll")!)).toBeTrue();
+    expect(host?.querySelector(".full-terminal-scroll")).toBeNull();
     expect(host?.querySelector(".full-terminal-pan > .full-terminal-canvas")).toBeTruthy();
     expect(chrome?.querySelector(".full-terminal-title")).toBeTruthy();
     expect(chrome?.querySelector(".full-terminal-status")?.textContent).toBe(getFullTerminalView().detail);

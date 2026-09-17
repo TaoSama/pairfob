@@ -27,6 +27,7 @@ type Client struct {
 	Label       string
 	PSK         []byte
 	DaemonPK    ed25519.PublicKey
+	Protocol    int
 	routeID     [16]byte
 	c2s, s2c    *aead.Direction
 	Established bool
@@ -38,20 +39,70 @@ type Client struct {
 	muxPending map[string]chan rpcOutcome
 }
 
-func (c *Client) recv(timeout time.Duration) (envelope.Frame, error) {
-	p := c.Conn.(*mux.Pipe)
-	f, ok := p.RecvTimeout(timeout)
-	if !ok {
-		return envelope.Frame{}, errors.New("timeout")
+// Protocol is the relay-facing envelope version used in HELLO_CLIENT,
+// PAIR_ATTACH and SESSION_ATTACH. It defaults to 1, which is what the
+// in-memory hub the tests run against expects; a client talking to a deployed
+// v2 relay must set 2 or every attach comes back as bad_token
+// (workers/pairfob-origin/src/room/pairing.ts:181).
+//
+// This is deliberately separate from the "v":1 inside the SPAKE2+ and RPC
+// payloads. Those are end-to-end bytes the relay never parses, and they are
+// frozen by the protocol contract in README.md.
+func (c *Client) relayProtocol() int {
+	if c.Protocol == 0 {
+		return 1
 	}
-	return f, nil
+	return c.Protocol
 }
 
+// frameReceiver is the read half of whatever transport the client is running
+// over. mux.Conn only declares Send and Close, because the hub never reads from
+// a connection it was handed — receiving is the owner's business. The two
+// owners here spell it differently: mux.Pipe reports a closed pipe through an
+// ok flag, while wsnet.Conn returns an error.
+type frameReceiver interface {
+	RecvWithin(time.Duration) (envelope.Frame, error)
+}
+
+// recv reads one frame, bridging the in-memory pipe used by tests and the real
+// websocket used against a deployed relay. Keeping both behind one method is
+// what lets the same pairing code serve as an acceptance client: a handshake
+// proven only over a pipe has not been proven against the relay at all.
+func (c *Client) recv(timeout time.Duration) (envelope.Frame, error) {
+	switch conn := c.Conn.(type) {
+	case *mux.Pipe:
+		f, ok := conn.RecvTimeout(timeout)
+		if !ok {
+			return envelope.Frame{}, errors.New("timeout")
+		}
+		return f, nil
+	case frameReceiver:
+		return conn.RecvWithin(timeout)
+	default:
+		return envelope.Frame{}, fmt.Errorf("phone client cannot receive over %T", c.Conn)
+	}
+}
+
+// Pair completes a handshake against a one-use pairing code. The code is
+// Crockford-folded first, so the operator can read it aloud and the typist can
+// confuse O for 0 without breaking the proof.
 func (c *Client) Pair(pairRef, code, daemonID string) error {
-	if err := c.Conn.Send(envelope.JSON(envelope.TypHELLO_CLIENT, [16]byte{}, map[string]any{"v": 1, "protocol": 1})); err != nil {
+	return c.pair(pairRef, canon.NormalizeCrockford(code), daemonID)
+}
+
+// PairWithPassword completes the same handshake against the persistent
+// passphrase gate. The secret is passed through byte for byte: Crockford
+// folding is defined over an 8-glyph alphabet and would destroy a passphrase's
+// case, punctuation and length, so the two ends would derive different records.
+func (c *Client) PairWithPassword(pairRef, password, daemonID string) error {
+	return c.pair(pairRef, password, daemonID)
+}
+
+func (c *Client) pair(pairRef, secret, daemonID string) error {
+	if err := c.Conn.Send(envelope.JSON(envelope.TypHELLO_CLIENT, [16]byte{}, map[string]any{"v": c.relayProtocol(), "protocol": c.relayProtocol()})); err != nil {
 		return err
 	}
-	attach := map[string]any{"v": 1}
+	attach := map[string]any{"v": c.relayProtocol()}
 	if pairRef != "" {
 		attach["pair_ref"] = pairRef
 	}
@@ -63,7 +114,13 @@ func (c *Client) Pair(pairRef, code, daemonID string) error {
 		return err
 	}
 	if f.Typ != envelope.TypPAIR_ATTACHED {
-		return errors.New("expected PAIR_ATTACHED")
+		// A rejected attach comes back as an ERROR frame carrying the reason,
+		// and swallowing it turns every distinct failure -- expired slot,
+		// pair_busy, unknown ref -- into the same unhelpful sentence.
+		if f.Typ == envelope.TypERROR {
+			return fmt.Errorf("attach rejected: %w", frameError(f))
+		}
+		return fmt.Errorf("expected PAIR_ATTACHED, got frame type %d", f.Typ)
 	}
 	var attached struct {
 		DaemonID string `json:"daemon_id"`
@@ -80,8 +137,7 @@ func (c *Client) Pair(pairRef, code, daemonID string) error {
 	}
 	pairRef, daemonID = attached.PairRef, attached.DaemonID
 	c.routeID = f.RouteID
-	norm := canon.NormalizeCrockford(code)
-	rec := spake2plus.DeriveRecord(norm, daemonID, pairRef)
+	rec := spake2plus.DeriveRecord(secret, daemonID, pairRef)
 	idP := spake2plus.IdProver(pairRef)
 	pr := spake2plus.NewProver(rec, idP, daemonID, "")
 	shareP := pr.Start()
@@ -184,10 +240,10 @@ func (c *Client) Pair(pairRef, code, daemonID string) error {
 func (c *Client) Resume(daemonID string) error {
 	c.DaemonID = daemonID
 	c.Established = false
-	if err := c.Conn.Send(envelope.JSON(envelope.TypHELLO_CLIENT, [16]byte{}, map[string]any{"v": 1, "protocol": 1})); err != nil {
+	if err := c.Conn.Send(envelope.JSON(envelope.TypHELLO_CLIENT, [16]byte{}, map[string]any{"v": c.relayProtocol(), "protocol": c.relayProtocol()})); err != nil {
 		return err
 	}
-	if err := c.Conn.Send(envelope.JSON(envelope.TypSESSION_ATTACH, [16]byte{}, map[string]any{"v": 1, "daemon_id": daemonID})); err != nil {
+	if err := c.Conn.Send(envelope.JSON(envelope.TypSESSION_ATTACH, [16]byte{}, map[string]any{"v": c.relayProtocol(), "daemon_id": daemonID})); err != nil {
 		return err
 	}
 	f, err := c.recv(2 * time.Second)

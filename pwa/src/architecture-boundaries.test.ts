@@ -35,6 +35,18 @@ const applicationModules = [
 
 const layers: LayerPolicy[] = [
   {
+    // Account entry, session identity and the encrypted device vault. The model
+    // is pure and emits copy codes rather than sentences; `actions.ts` is the
+    // feature's one connected adapter, and it reaches only the account API and
+    // this feature's own owner. Nothing here renders or reads global state.
+    name: "features/account",
+    root: "features/account",
+    allowedRoots: ["features/account/", "shared/", "lib/"],
+    allowedModules: [],
+    prohibitedModules: applicationModules,
+    prohibitedRoots: ["ui/", "pages/", "app/"],
+  },
+  {
     // Pure primitives plus the modal/action-sheet lifetime. `lib/i18n` and its
     // copy tables are the only application modules it may read: leaves that
     // import nothing but each other, with no state, paint or DOM root.
@@ -165,6 +177,19 @@ const layers: LayerPolicy[] = [
     opaque: ["app/", "live", "state", "viewport", "ui/react/chrome", "compose-drafts"],
   },
   {
+    // The account page: the entry form, the device list, and the adapter that
+    // carries a merged vault into the credential database. The feature below it
+    // stays closed, so everything that crosses into `app/`, the catalogue or the
+    // commit pipeline is here where a page is allowed to reach them.
+    name: "pages/account",
+    root: "pages/account",
+    allowedRoots: ["pages/account/", "features/", "shared/", "lib/", "app/"],
+    allowedModules: ["viewport", "ui/react/chrome", "live", "state"],
+    prohibitedModules: controllerModules,
+    prohibitedRoots: ["ui/"],
+    opaque: ["app/", "live", "state", "viewport", "ui/react/chrome"],
+  },
+  {
     name: "features/settings",
     root: "features/settings",
     allowedRoots: ["features/settings/", "shared/", "lib/"],
@@ -239,6 +264,7 @@ describe("architecture layer boundaries", () => {
      * owner-to-owner edges are pinned independently in `domain-owners.test.ts`.
      */
     const DOMAIN_OWNERS = new Set([
+      "features/account/account-store",
       "features/connection/connection-store", "features/connection/runtime-store",
       "features/computers/catalog-store", "features/pairing/form-store",
       "features/dashboard/catalog-store", "features/board/layout-store",
@@ -268,6 +294,9 @@ describe("architecture layer boundaries", () => {
         .map(file => moduleId(sourceRoot, file))
         .sort();
     }
+    // The account feature is self-contained: its actions reach the account API
+    // and its own owner, so nothing here is a connected adapter.
+    expect(connectedAdapters("features/account")).toEqual([]);
     expect(connectedAdapters("features/operations")).toEqual([
       "features/operations/controller",
       "features/operations/owner",

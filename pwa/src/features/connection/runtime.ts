@@ -56,8 +56,12 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
     // see the accepted observation as one coherent update, never runtime
     // identity without its push flag or capabilities.
     const credential = ports.currentCredential();
+    // The computer's own name wins over the pairing label, which is only ever
+    // what the browser that paired it called itself. Same rule as the computer
+    // list: two places naming one machine must not disagree.
+    const effectiveHost = hostname || credential?.label?.trim() || "";
     batch(() => {
-      applyRuntimeIdentity({ herdHost: hostname, runtimeKind });
+      applyRuntimeIdentity({ herdHost: effectiveHost, runtimeKind });
       setPushEnabled(config.push_enabled === true);
       applyCapabilities(operations.capabilities, operations.agentKinds);
     });

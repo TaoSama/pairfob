@@ -54,12 +54,14 @@ export function sendErr(
   ws: WireSink,
   code: string,
   message: string,
-  extra?: { routeId?: Uint8Array; pairRef?: string },
+  extra?: { routeId?: Uint8Array; pairRef?: string; retryAfterMs?: number },
 ): void {
   const routeId = extra?.routeId ?? ZERO_ROUTE;
   const body: Record<string, unknown> = { v: 2, code, message };
   if (extra?.routeId && extra.routeId.length === 16) body.route_id = [...extra.routeId].map((b) => b.toString(16).padStart(2, "0")).join("");
   if (extra?.pairRef) body.pair_ref = extra.pairRef;
+  // Tells a throttled client when to come back instead of making it poll.
+  if (extra?.retryAfterMs !== undefined) body.retry_after_ms = extra.retryAfterMs;
   sendJSON(ws, Typ.ERROR, routeId, body);
 }
 

@@ -16,6 +16,8 @@ export interface FragmentPairing {
 export const PAIR_CODE_PATTERN = "[0-9A-Za-z]{4}[\\- \\/_]?[0-9A-Za-z]{4}";
 export const PAIR_CODE_WITH_LOCATOR_PATTERN =
   "[0-9A-Za-z]{4}[\\- \\/_]?[0-9A-Za-z]{4}[\\- \\/_]*[0-9A-Za-z]{6}";
+// the locator entered on its own alongside a passphrase.
+export const PAIR_LOCATOR_PATTERN = "[0-9A-Za-z]{6}";
 
 export function parsePairingCode(raw: string): string | null {
   const code = normalizeCrockford(raw);

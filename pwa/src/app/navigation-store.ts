@@ -2,6 +2,7 @@ import { nextTransition, transitionFor, type TransitionKind } from "./transition
 import { batch, createDomain } from "../shared/model/domain-store";
 import { boardStore, boardReturn, stageBoardReturnCleared } from "../features/board/layout-store";
 import { composeTransaction } from "../shared/model/compose-transaction";
+import { pushBrowserHistory } from "./browser-history";
 
 /**
  * Navigation domain: which page the application shows, and the transition the
@@ -51,6 +52,9 @@ export function goToScreen(screen: Screen, options: NavigateOptions = {}): void 
       record.screen = screen;
     });
   });
+  if (screen !== "home" && !options.plain) {
+    pushBrowserHistory(screen, options.paneId);
+  }
 }
 
 /** Set the screen without declaring a transition (a poll or restore path). */

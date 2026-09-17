@@ -293,6 +293,53 @@ html[lang="zh-CN"]:not([data-i18n-ready]) [data-i18n] {
   border-color: var(--accent);
 }
 
+/* A URL on the page is something to open, so it is an anchor that still reads
+   as the address it points at. It sits next to non-clickable command blocks,
+   so the underline and the arrow are what separate the two. */
+.url-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #0b0e13;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 0.86rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+  text-decoration-color: rgba(110, 168, 254, 0.4);
+  text-underline-offset: 4px;
+  transition: border-color 0.18s var(--ease), background-color 0.18s var(--ease),
+    text-decoration-color 0.18s var(--ease);
+}
+
+.url-link::after {
+  content: "↗";
+  flex: none;
+  color: var(--faint);
+  font-size: 0.9em;
+  text-decoration: none;
+}
+
+.url-link:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  text-decoration-color: var(--accent);
+}
+
+.url-link:hover::after {
+  color: var(--accent);
+}
+
+.url-link-block {
+  display: flex;
+  justify-content: space-between;
+}
+
 /* ---------- section scaffolding ---------- */
 
 .band {

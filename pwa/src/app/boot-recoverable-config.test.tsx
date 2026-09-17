@@ -40,6 +40,11 @@ function deferred<T>() {
  * A fetch stub that records every /api/config call and lets the test resolve
  * or reject each in arrival order. Boot drives exactly one call per boot run,
  * so arrival order is the boot order.
+ *
+ * Anything else boot asks for is answered immediately as absent rather than
+ * queued. These cases are about the config read alone, and the origin they
+ * describe has no account plane: a deployment that never deployed those routes
+ * must still boot to connect, which is what the 404 exercises here.
  */
 function installConfigFetch() {
   const calls: Array<{ input: string; cache: string | undefined }> = [];
@@ -52,7 +57,11 @@ function installConfigFetch() {
       return pending.length;
     },
     fetch: async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-      calls.push({ input: String(input), cache: init?.cache });
+      const url = String(input);
+      if (!url.includes("/api/config")) {
+        return Response.json({ ok: false, error: { code: "not_found" } }, { status: 404 });
+      }
+      calls.push({ input: url, cache: init?.cache });
       const control = deferred<Response>();
       pending.push(control);
       return control.promise;

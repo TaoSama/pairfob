@@ -63,6 +63,10 @@ type Request struct {
 	Instance string `json:"instance,omitempty"`
 	PairRef  string `json:"pair_ref,omitempty"`
 	DeviceID string `json:"device_id,omitempty"`
+	// Password carries the operator passphrase for gate.set only. The server
+	// decodes it from the raw body into gateRequest rather than reading it
+	// here, so it stays out of the struct the other ops pass around.
+	Password string `json:"password,omitempty"`
 }
 
 type Response struct {

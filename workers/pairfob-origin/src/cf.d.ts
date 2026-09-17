@@ -45,9 +45,11 @@ interface D1Meta {
   last_row_id: number;
 }
 
-interface D1Result {
+interface D1Result<T = Record<string, unknown>> {
   success: boolean;
   meta: D1Meta;
+  /** Present for statements that read; a write reports only `meta.changes`. */
+  results?: T[];
 }
 
 interface D1PreparedStatement {
@@ -59,7 +61,7 @@ interface D1PreparedStatement {
 
 interface D1Database {
   prepare(query: string): D1PreparedStatement;
-  batch<T = unknown>(statements: D1PreparedStatement[]): Promise<D1Result[]>;
+  batch<T = Record<string, unknown>>(statements: D1PreparedStatement[]): Promise<D1Result<T>[]>;
 }
 
 interface Fetcher {
@@ -74,6 +76,7 @@ interface WebSocketPair {
 declare const WebSocketPair: { new (): WebSocketPair };
 
 interface WebSocket {
+  send(data: Uint8Array<ArrayBufferLike>): void;
   serializeAttachment(attachment: unknown): void;
   deserializeAttachment(): unknown;
 }

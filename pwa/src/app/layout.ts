@@ -1,4 +1,5 @@
 import type { Phase } from "../features/connection/connection-store";
+import type { AccountGate } from "../features/account/account-store";
 import type { Screen } from "./navigation-store";
 import { termLineHeightPx } from "../features/settings/preferences-store";
 
@@ -13,6 +14,7 @@ import { termLineHeightPx } from "../features/settings/preferences-store";
  */
 export type LayoutMode =
   | "boot"
+  | "account"
   | "connect"
   | "pick"
   | "workspace"
@@ -33,6 +35,12 @@ export type DeskChild = "chat" | "session" | null;
 export type LayoutInput = {
   phase: Phase;
   screen: Screen;
+  /**
+   * Which account surface is in the way, if any. It precedes every other mode:
+   * a deployment with accounts turned on answers "who are you" before it shows
+   * anyone a machine.
+   */
+  accountGate: AccountGate;
   fullTerminal: boolean;
   agentChat: boolean;
   /** Wide layout: the list stays beside the page instead of stacking. */
@@ -68,17 +76,23 @@ export type LayoutDescriptor = {
 export function computeLayout(input: LayoutInput): LayoutDescriptor {
   const live = input.phase === "live";
   const booting = input.phase === "boot" || input.phase === "resuming";
-  const workspace = live && input.screen === "workspace";
-  const board = live && input.screen === "board";
-  const desk = live && input.desk && !input.fullTerminal && !workspace && !board;
-  const session = live && input.screen === "pane" && (!desk || input.fullTerminal);
+  const account = input.accountGate !== "off";
+  const workspace = !account && live && input.screen === "workspace";
+  const board = !account && live && input.screen === "board";
+  const desk = !account && live && input.desk && !input.fullTerminal && !workspace && !board;
+  const session = !account && live && input.screen === "pane" && (!desk || input.fullTerminal);
   const deskPage: DeskPage = desk && (input.screen === "settings" || input.screen === "quota"
     || input.screen === "computers") ? input.screen : null;
   const deskChild: DeskChild = desk && !deskPage && input.hasSelectedPane
     ? input.agentChat ? "chat" : "session"
     : null;
 
-  const mode: LayoutMode = booting ? "boot"
+  // The account gate outranks the phase ladder rather than joining it. A phone
+  // with a live session still has to say who it is after a sign-out, and a
+  // pairing in flight must not paint over the form asking for the passphrase
+  // that would decrypt its result.
+  const mode: LayoutMode = account ? "account"
+    : booting ? "boot"
     : input.phase === "connect" || input.phase === "pairing" ? "connect"
     : input.phase === "pick" ? "pick"
     : workspace ? "workspace"
@@ -100,7 +114,7 @@ export function computeLayout(input: LayoutInput): LayoutDescriptor {
     termFontPx: input.termFontPx,
     termLineHeightPx: termLineHeightPx(input.termFontPx),
     operationBusy: input.operationBusy,
-    key: `${mode}:${input.phase}:${deskPage ?? "-"}:${deskChild ?? "-"}`,
+    key: `${mode}:${input.phase}:${input.accountGate}:${deskPage ?? "-"}:${deskChild ?? "-"}`,
   };
 }
 

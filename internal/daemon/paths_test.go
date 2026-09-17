@@ -83,6 +83,7 @@ func TestPathAllowedResolvesSymlinksAndExplicitRoots(t *testing.T) {
 	root := t.TempDir()
 	project := filepath.Join(root, "project")
 	outside := t.TempDir()
+	t.Setenv("PAIRFOB_ALLOWED_ROOTS", project)
 	if err := os.Mkdir(project, 0o700); err != nil {
 		t.Fatal(err)
 	}

@@ -9,6 +9,9 @@ workers/pairfob-origin/public-dist
 site/doc/.vitepress/dist
 site/doc/.vitepress/cache
 /dist
+/production-bin/
+/production-state/
+/.tmp/
 
 # compiled binaries left in the tree
 *.exe
@@ -25,6 +28,8 @@ ui-review/
 /design/
 
 # local agent skills and runbooks
+.claude/
+.orchestration/
 .agents/
 .herd-swarm/
 .herd-dispatch/
@@ -34,6 +39,8 @@ ui-review/
 .wrangler
 .dev.vars*
 !.dev.vars.example
+# rendered by scripts/deploy-origin.sh; holds the account-specific D1 id
+workers/pairfob-origin/wrangler.deploy.jsonc
 .env*
 !.env.example
 .prod-operator-token

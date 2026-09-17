@@ -1,4 +1,4 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { memo, useEffect, useRef, useSyncExternalStore } from "react";
 import { lineFillBackground, paintLines, spanCss, type StyledLine } from "../../../lib/ansi";
 import { t } from "../../../lib/i18n";
 import { openPaneId, paneFollow, paneUnread, setPaneFollow, termSelect } from "../session-store";
@@ -24,9 +24,8 @@ import {
 import { paneModel } from "./pane-model";
 import { unreadBars, unreadCount } from "./unread";
 import { bindHostScroll } from "../full-terminal/full-terminal-scroll";
-import { SessionScrollRail } from "./session-scroll";
 
-function TermLine({
+const TermLine = memo(function TermLine({
   line,
   index,
   ghost,
@@ -48,7 +47,7 @@ function TermLine({
       ) : null}
     </div>
   );
-}
+});
 
 function ghostRowIndex(lines: StyledLine[]): number {
   for (let i = lines.length - 1; i >= 0; i--) {
@@ -153,7 +152,6 @@ export function SessionTerminal({ onRow }: { onRow?: (index: number) => void } =
           ))}
         </div>
       </div>
-      <SessionScrollRail scroll={sendGuidedTuiScroll} pageLines={pageScrollLines} />
       <JumpChip jumpRef={jumpRef} />
     </div>
   );

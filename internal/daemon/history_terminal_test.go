@@ -15,7 +15,7 @@ func TestTerminalHistoryCursorUsesOnlyFrozenWindows(t *testing.T) {
 		next := nextTerminalHistoryCursor(lines)
 		if i == len(terminalHistoryWindows)-1 {
 			if next != nil {
-				t.Fatalf("4096-line window exposed another cursor: %q", *next)
+				t.Fatalf("10000-line window exposed another cursor: %q", *next)
 			}
 		} else if next == nil {
 			t.Fatalf("window %d has no next cursor", lines)

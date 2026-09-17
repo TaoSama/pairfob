@@ -2,7 +2,7 @@ import { readAttachment, type Attachment } from "./attachment.ts";
 import type { RoomSocket } from "./types.ts";
 
 export interface HibernatingSocket {
-  send(data: Uint8Array): void;
+  send(data: Uint8Array<ArrayBufferLike>): void;
   close(code?: number, reason?: string): void;
   serializeAttachment(att: Attachment): void;
   deserializeAttachment(): unknown;

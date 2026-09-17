@@ -1,3 +1,5 @@
+import { handleAccount } from "./account.ts";
+import { accessHeaders, deviceAccess } from "./account-authz.ts";
 import { handleAdmin } from "./admin.ts";
 import { CSP_SITE, DAEMON_ID_RE, PROTOCOL, SUBPROTOCOL } from "./constants.ts";
 import { handleEnroll } from "./enroll.ts";
@@ -21,6 +23,7 @@ import {
 import { allowSessionIP } from "./limits.ts";
 import { observeError, observeUpgrade } from "./metrics.ts";
 import { handlePairIntent } from "./pair-intent.ts";
+import { handleDeviceRelease } from "./device-release.ts";
 import { handleRekey } from "./rekey.ts";
 
 const PLACEHOLDER = `<!doctype html><meta charset="utf-8"><title>Pairfob</title><h1>Pairfob</h1><p>Hosted origin. Production copies pwa/dist into R2.</p>`;
@@ -50,9 +53,13 @@ export async function handleFetch(req: Request, env: Env): Promise<Response> {
 
   if (path === "/v2/enroll") return handleEnroll(req, env);
   if (path === "/v2/rekey") return handleRekey(req, env);
+  if (path === "/v2/device-release") return handleDeviceRelease(req, env);
   if (path === "/v2/pair-intent") return handlePairIntent(req, env);
   if (path === "/v2/events") return handleEvents(req, env);
   if (path === "/v2/grants") return errorJson(build, 404, "unbound", noStore());
+
+  const account = await handleAccount(req, env);
+  if (account) return account;
 
   const admin = await handleAdmin(req, env);
   if (admin) return admin;
@@ -141,8 +148,16 @@ async function routeWs(req: Request, env: Env): Promise<Response> {
     }
   }
 
+  // A bound computer is reachable only by the account that owns it. Unbound
+  // ones stay open because the first pairing is how ownership starts.
+  const access = await deviceAccess(env.DB, daemonId, req, Date.now());
+  if (role === "client" && !access.allowed) {
+    observeError(env, "forbidden", daemonId);
+    return errorJson(build, 403, "forbidden", noStore());
+  }
+
   const stub = env.DAEMON_ROOM.get(env.DAEMON_ROOM.idFromName(daemonId));
-  const res = await stub.fetch(req);
+  const res = await stub.fetch(accessHeaders(req, access));
   if (res.status === 101) {
     observeUpgrade(env, role, daemonId);
     return res;
@@ -268,6 +283,9 @@ function staticAssetHeaders(path: string, ok: boolean, contentType: string | nul
   }
   if (path.startsWith("/dl/")) {
     return { "Cache-Control": "public, max-age=3600" };
+  }
+  if (path.startsWith("/assets/")) {
+    return { "Cache-Control": "public, max-age=31536000, immutable" };
   }
   return undefined;
 }

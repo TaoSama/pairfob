@@ -113,3 +113,9 @@ describe("hand-entry locator gate", () => {
     expect(resolveHandPairing(1, "ABC", false)).toEqual({ ok: false, field: "code", error: "invalid_pair_code" });
   });
 });
+
+//
+// These cases are the executable half of the cross-end normalization contract.
+// The Go daemon must agree byte-for-byte on every vector here: the passphrase
+// feeds the same Argon2id-stretched SPAKE2+ record, so a one-sided rule turns
+// into an unexplainable "wrong passphrase" at confirm time.

@@ -25,6 +25,7 @@ export {
   type PairInput,
   type PairOptions,
   type PairResult,
+  type PairSecretKind,
 } from "./pair-ws.ts";
 export {
   MEDIA_OPEN_RPC_TIMEOUT_MS,

@@ -16,6 +16,7 @@ import { setComposeDraft, setComposeLive } from "../session/compose-store";
 import { setTraceNote } from "../session/chat/trace-store";
 import { currentDaemonId } from "../computers/catalog-store";
 import { setScreen } from "../../app/navigation-store";
+import { pushBrowserHistory } from "../../app/browser-history";
 import { readStoredDraft } from "../session/drafts/state-drafts";
 import { acknowledgePaneCompletion } from "../dashboard/catalog-store";
 import {
@@ -100,14 +101,22 @@ export async function openPaneWithOwner(paneId: string, ports: OpenPanePorts): P
     ports.restoreAgentTrace(paneId);
     if (ports.queuedKind() === "none") ports.nextTransition(ports.transitionFor(ports.currentScreen(), "pane"), paneId);
     setScreen("pane");
-    const resolved = ports.resolvedTermMode(paneTermMode(paneId));
+    const pref = paneTermMode(paneId);
+    const resolved = ports.resolvedTermMode(pref);
     const agent = ports.findAgent(paneId);
+    const canChat = ports.canEnterAgentChat(agent);
     // The effective mode follows the controller that actually mounts after
     // the agent-chat capability fallback. The restored draft is the draft the
     // pane really shows — never the stored preferred agent draft when chat
     // cannot enter — and an agent draft keeps its stored recovery error.
     const mode: "full" | "agent" | "guided" =
-      resolved === "full" ? "full" : resolved === "agent" && ports.canEnterAgentChat(agent) ? "agent" : "guided";
+      resolved === "full"
+        ? "full"
+        : pref === "agent" && canChat
+          ? "agent"
+          : resolved === "agent" && canChat
+            ? "agent"
+            : "guided";
     setFullTerminal(mode === "full");
     setAgentChat(mode === "agent");
     const draft = readStoredDraft({ daemonId: currentDaemonId(), paneId, mode });
@@ -123,6 +132,7 @@ export async function openPaneWithOwner(paneId: string, ports: OpenPanePorts): P
   const navigation = { scope, incarnation, isCurrent };
   if (!isCurrent()) return null;
   ports.commitView();
+  pushBrowserHistory("pane", paneId);
   if (!isCurrent()) return null;
   await ports.refreshPane();
   return isCurrent() ? navigation : null;

@@ -16,7 +16,7 @@ export default defineConfig({
     theme: { light: "github-light", dark: "github-dark" },
   },
   sitemap: {
-    hostname: "https://pairfob.com/doc/",
+    hostname: "https://pair.taoai.site/doc/",
   },
   themeConfig: {
     search: {

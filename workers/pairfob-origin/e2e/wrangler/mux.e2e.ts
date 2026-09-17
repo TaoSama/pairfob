@@ -7,6 +7,8 @@ import { ZERO_ROUTE } from "../../src/crypto.ts";
 
 const ORIGIN = "https://pairfob.com";
 const PAIR_REF = "4f7a2c9e1b0d88aa55cc3311abde7001";
+const BOOTSTRAP_SERVICE_TOKEN = "dev-bootstrap-service";
+const ACCOUNT_PASSWORD = "correct horse battery";
 
 type D1Migrations = Parameters<typeof applyD1Migrations>[1];
 
@@ -42,12 +44,34 @@ async function enroll(): Promise<{ daemon_id: string; reconnect_token: string }>
   return { daemon_id: String(body.daemon_id), reconnect_token: String(body.reconnect_token) };
 }
 
-async function openMux(path: string, origin?: string): Promise<{ ws: WebSocket; status: number }> {
+/**
+ * A phone reaches a computer only as a signed-in account, so the pairing leg of
+ * this test has to carry a real session cookie. Bootstrap opens the first
+ * account and hands one back in `Set-Cookie`.
+ */
+async function signIn(): Promise<string> {
+  const res = await SELF.fetch(`${ORIGIN}/v2/account/bootstrap`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Origin: ORIGIN },
+    body: JSON.stringify({ v: 2, service_token: BOOTSTRAP_SERVICE_TOKEN, password: ACCOUNT_PASSWORD }),
+  });
+  expect(res.status).toBe(201);
+  const cookie = (res.headers.get("Set-Cookie") || "").split(";")[0];
+  expect(cookie).toMatch(/^pairfob_session=[0-9a-f]{64}$/);
+  return cookie;
+}
+
+async function openMux(
+  path: string,
+  origin?: string,
+  cookie?: string,
+): Promise<{ ws: WebSocket; status: number }> {
   const headers: Record<string, string> = {
     Upgrade: "websocket",
     "Sec-WebSocket-Protocol": "pairfob.v2",
   };
   if (origin !== undefined) headers.Origin = origin;
+  if (cookie !== undefined) headers.Cookie = cookie;
   const res = await SELF.fetch(`${ORIGIN}${path}`, { headers });
   if (res.status === 101 && res.webSocket) {
     res.webSocket.accept();
@@ -100,6 +124,7 @@ async function readJSONFrame(ws: WebSocket, typ: number): Promise<Record<string,
 describe("wrangler enroll + HELLO + pairing ticket", () => {
   it("enrolls, acks PAIR_OPEN loc, consumes ticket once, QR has no ticket", async () => {
     const creds = await enroll();
+    const cookie = await signIn();
 
     const daemon = await openMux(`/v2/ws?role=daemon&daemon_id=${creds.daemon_id}`);
     expect(daemon.status).toBe(101);
@@ -129,7 +154,7 @@ describe("wrangler enroll + HELLO + pairing ticket", () => {
 
     const intent = await SELF.fetch(`${ORIGIN}/v2/pair-intent`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Origin: ORIGIN },
+      headers: { "Content-Type": "application/json", Origin: ORIGIN, Cookie: cookie },
       body: JSON.stringify({ v: 2, pair_loc: loc }),
     });
     expect(intent.status).toBe(200);
@@ -138,20 +163,36 @@ describe("wrangler enroll + HELLO + pairing ticket", () => {
     expect(ticket).toMatch(/^[0-9a-f]{32}$/);
     expect(hit.daemon_id).toBe(creds.daemon_id);
 
+    // Proves the 101 above was earned by the session and not by the gate being
+    // absent: the same ticket URL without a cookie is refused outright.
+    const anonymous = await openMux(
+      `/v2/ws?role=client&daemon_id=${creds.daemon_id}&pair_ticket=${ticket}`,
+      ORIGIN,
+    );
+    expect(anonymous.status).toBe(403);
+
     const first = await openMux(
       `/v2/ws?role=client&daemon_id=${creds.daemon_id}&pair_ticket=${ticket}`,
       ORIGIN,
+      cookie,
     );
     expect(first.status).toBe(101);
 
     const second = await SELF.fetch(
       `${ORIGIN}/v2/ws?role=client&daemon_id=${creds.daemon_id}&pair_ticket=${ticket}`,
-      { headers: { Upgrade: "websocket", "Sec-WebSocket-Protocol": "pairfob.v2", Origin: ORIGIN } },
+      {
+        headers: {
+          Upgrade: "websocket",
+          "Sec-WebSocket-Protocol": "pairfob.v2",
+          Origin: ORIGIN,
+          Cookie: cookie,
+        },
+      },
     );
     expect(second.status).toBe(404);
     expect(await json(second)).toEqual({ ok: false, error: { code: "unpaired" } });
 
-    const qr = await openMux(`/v2/ws?role=client&daemon_id=${creds.daemon_id}`, ORIGIN);
+    const qr = await openMux(`/v2/ws?role=client&daemon_id=${creds.daemon_id}`, ORIGIN, cookie);
     expect(qr.status).toBe(101);
     sendJSON(qr.ws, Typ.HELLO_CLIENT, { v: 2, protocol: 2 });
     sendJSON(qr.ws, Typ.PAIR_ATTACH, { v: 2, pair_ref: PAIR_REF });

@@ -190,11 +190,12 @@ export async function landAfterDisconnect(
     setPhase(phaseAfterComputers(count));
     if (!count) setCredential(null);
   });
-  if (!opts.silent) {
+  if (!opts.silent && code !== "kicked") {
     const burned = credentialIsBurned(code) && (code === "revoked" || code === "unpaired");
     if (opts.error) ctx.ports.showError(burned ? FRIENDLY_ERROR.revoked : messageOf(opts.error), true);
     else if (code) {
-      ctx.ports.showError(burned ? FRIENDLY_ERROR.revoked : sessionEventNotice({ type: "terminal", code }), true);
+      const notice = sessionEventNotice({ type: "terminal", code });
+      if (notice) ctx.ports.showError(burned ? FRIENDLY_ERROR.revoked : notice, true);
     }
   }
   ctx.ports.track("pwa_disconnect", { result: code || "disconnected" });
@@ -235,7 +236,7 @@ export async function establish(
     setPhase("resuming");
     setCredential(destination);
     setAddingComputer(false);
-    applyRuntimeIdentity({ herdHost: destination.hostname || "", runtimeKind: "" });
+    applyRuntimeIdentity({ herdHost: destination.label?.trim() || destination.hostname || "", runtimeKind: "" });
     adoptDaemonPreferences();
   });
   ctx.ports.commitView();

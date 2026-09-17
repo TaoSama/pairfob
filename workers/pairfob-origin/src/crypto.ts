@@ -51,6 +51,53 @@ export async function hmacSha256Hex(pepper: string, message: string): Promise<st
   return bytesToHex(new Uint8Array(mac));
 }
 
+const PASSWORD_SCHEME = "pbkdf2-sha256";
+/**
+ * Workers bill PBKDF2 against a per-request CPU ceiling, and a derivation above
+ * this cost is killed in production while still passing locally. Verification
+ * accepts whatever cost a stored record names, so this can be raised later
+ * without a rehash migration.
+ */
+export const PASSWORD_ITERATIONS = 100_000;
+export const PASSWORD_ITERATIONS_MAX = 100_000;
+const PASSWORD_SALT_BYTES = 16;
+const PASSWORD_HASH_BYTES = 32;
+
+async function pbkdf2Hex(password: string, salt: Uint8Array, iterations: number): Promise<string> {
+  const key = await crypto.subtle.importKey("raw", enc.encode(password), "PBKDF2", false, ["deriveBits"]);
+  const bits = await crypto.subtle.deriveBits(
+    { name: "PBKDF2", hash: "SHA-256", salt: salt as BufferSource, iterations },
+    key,
+    PASSWORD_HASH_BYTES * 8,
+  );
+  return bytesToHex(new Uint8Array(bits));
+}
+
+/** Encoded as `scheme$iterations$salt$hash` so the cost can be raised later without a rehash migration. */
+export async function hashPassword(password: string): Promise<string> {
+  const salt = randomBytes(PASSWORD_SALT_BYTES);
+  const hash = await pbkdf2Hex(password, salt, PASSWORD_ITERATIONS);
+  return `${PASSWORD_SCHEME}$${PASSWORD_ITERATIONS}$${bytesToHex(salt)}$${hash}`;
+}
+
+export async function verifyPassword(stored: string, password: string): Promise<boolean> {
+  const parts = stored.split("$");
+  if (parts.length !== 4 || parts[0] !== PASSWORD_SCHEME) return false;
+  const iterations = Number.parseInt(parts[1], 10);
+  // A record naming a cost above the ceiling is refused rather than derived:
+  // otherwise a corrupted row turns every login into a CPU-limit failure.
+  if (!Number.isInteger(iterations) || iterations < 1 || iterations > PASSWORD_ITERATIONS_MAX) return false;
+  let salt: Uint8Array;
+  try {
+    salt = hexToBytes(parts[2]);
+  } catch {
+    return false;
+  }
+  if (salt.length === 0) return false;
+  const hash = await pbkdf2Hex(password, salt, iterations);
+  return timingSafeEqual(hash, parts[3]);
+}
+
 export function timingSafeEqual(a: string, b: string): boolean {
   const ba = enc.encode(a);
   const bb = enc.encode(b);

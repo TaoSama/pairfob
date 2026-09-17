@@ -1,5 +1,5 @@
 (function () {
-  const ORIGIN = "https://pairfob.com";
+  const ORIGIN = "https://pair.taoai.site";
 
   const zh = {
     title: "Pairfob — 手机接着操作电脑上的 AI Agent 会话",
@@ -22,7 +22,7 @@
     "cta.start": "开始使用",
     "cta.computer": "在这台电脑上开始",
     "cta.phone": "在手机打开",
-    "cta.phone.hint": "不要在这台电脑打开。",
+    "cta.phone.hint": "给手机用的地址。在这台电脑点开只是新开一页，配对码还留在这块屏幕上。",
     "cta.phone.aria": "在手机打开 Pairfob",
     "cta.foot": "在手机打开 Pairfob",
     "hero.eyebrow": "Herdr 的手机端",
@@ -165,7 +165,7 @@
     "cta.start": "Get started",
     "cta.computer": "Start on this computer",
     "cta.phone": "On your phone, open",
-    "cta.phone.hint": "Don't open it on this computer.",
+    "cta.phone.hint": "This address is for the phone. Opening it here just adds a tab; the pairing code stays on this screen.",
     "cta.phone.aria": "Open Pairfob on your phone",
     "cta.foot": "On the phone, open Pairfob",
     "hero.eyebrow": "The phone surface for Herdr",

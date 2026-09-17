@@ -4,6 +4,7 @@ import { AgentChatPane } from "../features/session/chat/agent-chat";
 import { SessionPane } from "../features/session/guided/session-pane";
 import { FullTerminalRoute } from "../features/session/full-terminal/full-terminal-route";
 import { BoardPage as BoardScreen } from "../pages/board";
+import { AccountScreen } from "../pages/account/account-page";
 import { BootScreen } from "../pages/boot";
 import { ComputersScreen } from "../pages/computers/computers-page";
 import { ConnectScreen } from "../pages/connect/connect-page";
@@ -61,6 +62,8 @@ export function pageFor(layout: ShellLayout, frame: FrameSnapshot): ReactNode {
   switch (layout.mode) {
     case "boot":
       return <BootScreen />;
+    case "account":
+      return <AccountScreen />;
     case "connect":
       return <ConnectScreen />;
     case "pick":

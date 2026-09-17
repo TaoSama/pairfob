@@ -32,7 +32,7 @@ If another computer also runs `pairfob pair`, the old code dies. The phone may s
 
 ## Connecting the other device
 
-Open <a href="/pair">pairfob.com/pair</a>. The pairing page follows the same language as Pairfob (**Connect your computer** in English). A device that is already paired goes straight to the session list.
+Open <a href="/pair">pair.taoai.site/pair</a>. The pairing page follows the same language as Pairfob (**Connect your computer** in English). A device that is already paired goes straight to the session list.
 
 ### Scan (preferred) — **Scan to connect**
 
@@ -75,7 +75,7 @@ Match the string on screen (English Pairfob):
 
 ## After pairing
 
-- Opening <a href="/pair">pairfob.com/pair</a> reconnects to the last computer this browser used
+- Opening <a href="/pair">pair.taoai.site/pair</a> reconnects to the last computer this browser used
 - Another computer on this phone: install pairfob there with the same command, run `pairfob pair`, then **Settings → Add another computer** — [Multiple devices](/devices)
 - Another device: run `pairfob pair` again and scan with the **new** device — [Multiple devices](/devices)
 - On the phone, **Settings → Paired devices** can unpair other devices. The computer can also `pairfob forget N`

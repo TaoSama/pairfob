@@ -1,4 +1,5 @@
 import { randomBytes } from "../crypto.ts";
+import { readyClaimProof } from "../account-store.ts";
 import type { Env } from "../env.ts";
 import { buildOf } from "../http.ts";
 import { roomMetrics } from "../metrics.ts";
@@ -28,6 +29,13 @@ export class DaemonRoom {
       sockets: () => wrapSockets(self.ctx.getWebSockets(), self.wraps),
       index: env.PAIRING_INDEX ? new NamespaceIndexClient(env.PAIRING_INDEX) : undefined,
       metrics: roomMetrics(env, ctx.id.name || ""),
+      claims: env.DB
+        ? {
+            confirm: async (account, routeId) => {
+              await readyClaimProof(env.DB, account, ctx.id.name || "", routeId, Date.now());
+            },
+          }
+        : undefined,
     });
     ctx.blockConcurrencyWhile(async () => {
       this.core.coldStart();

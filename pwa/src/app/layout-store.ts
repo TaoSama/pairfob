@@ -1,5 +1,6 @@
 import { computeLayout, layoutsEqual, type LayoutDescriptor, type LayoutInput } from "./layout";
 import { currentLayoutInput, publishedLayoutInput } from "./layout-input";
+import { accountStore } from "../features/account/account-store";
 import { capabilitiesStore } from "../features/operations/capabilities-store";
 import { connectionStore } from "../features/connection/connection-store";
 import { dashboardStore } from "../features/dashboard/catalog-store";
@@ -27,6 +28,7 @@ type LayoutRecord = { layout: LayoutDescriptor | null };
 
 const layoutInputs = [
   connectionStore, navigationStore, sessionStore, dashboardStore, preferencesStore, capabilitiesStore,
+  accountStore,
 ] as const;
 
 const layoutDomain = createDomain<LayoutRecord>("app-layout", { layout: null });

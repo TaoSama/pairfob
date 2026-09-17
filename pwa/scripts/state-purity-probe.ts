@@ -44,6 +44,7 @@ const MODULES = [
   "../src/app/frame.ts",
   "../src/app/domain-publication.ts",
   // The real domain owners (the shims re-export these; verify the owners cold).
+  "../src/features/account/account-store.ts",
   "../src/features/connection/connection-store.ts",
   "../src/features/connection/runtime-store.ts",
   "../src/features/computers/catalog-store.ts",

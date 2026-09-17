@@ -64,7 +64,7 @@ pairfob forget 1
 
 每台电脑各自安装、各自配对。安装命令相同：
 
-1. 在另一台电脑：`curl -fsSL https://pairfob.com/install.sh | sh`
+1. 在另一台电脑：`curl -fsSL https://pair.taoai.site/install.sh | sh`
 2. 在那台电脑：`pairfob pair`
 3. 在这台手机：**设置 → 添加另一台电脑**，再扫那台电脑当前的码
 

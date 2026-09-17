@@ -107,16 +107,16 @@ func (e *Engine) rpcPaneRead(s *sess, id string, params json.RawMessage) {
 		return
 	}
 	if p.Source == "" {
-		p.Source = runtime.SourceVisible
+		p.Source = runtime.SourceRecent
 	}
 	if p.Format == "" {
 		p.Format = runtime.FormatANSI
 	}
-	if p.Source != runtime.SourceVisible {
-		e.replyErr(s, id, "forbidden", "only source=visible is allowed")
+	if p.Source != runtime.SourceVisible && p.Source != runtime.SourceRecent && p.Source != runtime.SourceRecentUnwrapped {
+		e.replyErr(s, id, "forbidden", "invalid source")
 		return
 	}
-	if (p.Format != runtime.FormatText && p.Format != runtime.FormatANSI) || p.Lines < 0 || p.Lines > 4096 {
+	if (p.Format != runtime.FormatText && p.Format != runtime.FormatANSI) || p.Lines < 0 || p.Lines > 10000 {
 		e.replyErr(s, id, "too_large", "invalid read bounds")
 		return
 	}

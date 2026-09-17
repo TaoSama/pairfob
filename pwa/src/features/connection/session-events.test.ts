@@ -40,6 +40,10 @@ const eventPorts: SessionEventPorts = {
     calls.push("active");
   },
   sessionEventNotice: () => "",
+  // Stubbed so the restore settles deterministically. The real cache reaches
+  // for IndexedDB, and its late resolution would append a commitView to
+  // whichever test happened to be running when it landed.
+  restoreCachedSnapshot: async () => undefined,
 };
 
 beforeEach(async () => {

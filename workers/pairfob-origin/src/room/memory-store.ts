@@ -155,6 +155,31 @@ export class MemoryStore implements RoomStore {
     for (const k of this.binds.keys()) if (!liveRouteIds.has(k)) this.binds.delete(k);
   }
 
+  private gateAttempts: Array<{ at: number; ok: boolean }> = [];
+
+  recordGateAttempt(at: number, ok: boolean): void {
+    this.sql();
+    this.gateAttempts.push({ at, ok });
+  }
+
+  gateFailuresSince(since: number): { count: number; lastAt: number } {
+    this.sql();
+    let count = 0;
+    let lastAt = 0;
+    for (const attempt of this.gateAttempts) {
+      if (attempt.at >= since && !attempt.ok) {
+        count++;
+        if (attempt.at > lastAt) lastAt = attempt.at;
+      }
+    }
+    return { count, lastAt };
+  }
+
+  pruneGateAttempts(before: number): void {
+    this.sql();
+    this.gateAttempts = this.gateAttempts.filter((attempt) => attempt.at >= before);
+  }
+
   /** Test helper: skip schema flag so we can inspect whether ensureSchema ran. */
   get schemedFlag(): boolean {
     return this.schemed;

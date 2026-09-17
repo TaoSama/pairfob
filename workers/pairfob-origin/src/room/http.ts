@@ -1,4 +1,5 @@
 import { DAEMON_ID_RE, MAX_PENDING_HELLO } from "../constants.ts";
+import { readAccess } from "../account-authz.ts";
 import { bytesToHex } from "../crypto.ts";
 import { applySecurityHeaders, buildOf, errorJson, jsonResponse, noStore, readJSON, unpairedJson } from "../http.ts";
 import type { RoomCore } from "./core.ts";
@@ -93,7 +94,7 @@ export async function handleRoomFetch(
     if (room.countPendingHellos() >= MAX_PENDING_HELLO) {
       return errorJson(build, 429, "rate_limited", noStore());
     }
-    const consumed = room.consumeUpgrade(url.searchParams, role);
+    const consumed = room.consumeUpgrade(url.searchParams, role, readAccess(req));
     if (!consumed.ok) return unpairedJson(build, noStore());
     if (!hooks) return errorJson(build, 500, "internal", noStore());
     await armHello(room, bytesToHex(room.random(8)), consumed.attachment.created_ms);

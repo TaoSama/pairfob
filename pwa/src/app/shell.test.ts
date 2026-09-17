@@ -8,7 +8,7 @@ import { applyShell, clearShell, useAppShell } from "./shell";
 
 function layout(overrides: Partial<Parameters<typeof computeLayout>[0]> = {}): LayoutDescriptor {
   return computeLayout({
-    phase: "live", screen: "pane", fullTerminal: false, agentChat: false, desk: false,
+    phase: "live", screen: "pane", accountGate: "off", fullTerminal: false, agentChat: false, desk: false,
     hasSelectedPane: true, termFontPx: 12, operationBusy: false, ...overrides,
   });
 }

@@ -81,6 +81,10 @@ export interface RoomStore {
   deleteBind(routeId: string): void;
   listBinds(): BindRow[];
   deleteGhostBinds(liveRouteIds: Set<string>): void;
+
+  recordGateAttempt(at: number, ok: boolean): void;
+  gateFailuresSince(since: number): { count: number; lastAt: number };
+  pruneGateAttempts(before: number): void;
 }
 
 export interface RoomSocket {
@@ -103,6 +107,16 @@ export interface RoomMetrics {
   alarmLate(ms: number): void;
 }
 
+/**
+ * Records that the daemon accepted a session for an account. This is the only
+ * pairing fact the relay can witness for itself, so it is what arms a pending
+ * ownership claim. The room knows nothing about accounts beyond the identifier
+ * the worker attached to the socket.
+ */
+export interface ClaimWitness {
+  confirm(account: string, routeId: string): Promise<void>;
+}
+
 export interface RoomDeps {
   daemonId: string;
   store: RoomStore;
@@ -111,4 +125,5 @@ export interface RoomDeps {
   sockets: () => RoomSocket[];
   index?: PairIndexClient;
   metrics?: RoomMetrics;
+  claims?: ClaimWitness;
 }

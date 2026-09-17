@@ -240,7 +240,7 @@ func (h *Herdr) readPane(ctx context.Context, session SessionRef, query PaneRead
 	if query.Format == "" {
 		query.Format = FormatText
 	}
-	if !validPaneReadSource(query.Source) || (query.Format != FormatText && query.Format != FormatANSI) || query.Lines < 0 || query.Lines > 4096 {
+	if !validPaneReadSource(query.Source) || (query.Format != FormatText && query.Format != FormatANSI) || query.Lines < 0 || query.Lines > 10000 {
 		return nil, invalidFault("pane.read", "invalid pane read options")
 	}
 	raw, err := h.call(ctx, session, "pane.read", map[string]any{

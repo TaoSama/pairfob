@@ -64,7 +64,7 @@ To drop a phone you can no longer hold, prefer the computer:
 
 Each computer enrolls and pairs on its own. Same installer, new pairing:
 
-1. On the other computer: `curl -fsSL https://pairfob.com/install.sh | sh`
+1. On the other computer: `curl -fsSL https://pair.taoai.site/install.sh | sh`
 2. There: `pairfob pair`
 3. On this phone: **Settings → Add another computer**, then scan that computer’s current code
 

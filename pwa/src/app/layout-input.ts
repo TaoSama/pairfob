@@ -1,5 +1,6 @@
 import { isDesk } from "./viewport";
 import { computeLayout, type LayoutDescriptor, type LayoutInput } from "./layout";
+import { accountGate, accountStore } from "../features/account/account-store";
 import { capabilitiesStore, operationBusy } from "../features/operations/capabilities-store";
 import { connectionStore, phase } from "../features/connection/connection-store";
 import { dashboardStore, selectedAgent } from "../features/dashboard/catalog-store";
@@ -18,6 +19,7 @@ export function currentLayoutInput(): LayoutInput {
   return {
     phase: phase(),
     screen: currentScreen(),
+    accountGate: accountGate(),
     fullTerminal: isFullTerminal(),
     agentChat: isAgentChat(),
     desk: isDesk(),
@@ -38,6 +40,7 @@ export function publishedLayoutInput(): LayoutInput {
   return {
     phase: connectionStore.get().phase,
     screen: navigationStore.get().screen,
+    accountGate: accountStore.get().gate,
     fullTerminal: session.fullTerminal,
     agentChat: session.agentChat,
     desk: isDesk(),
