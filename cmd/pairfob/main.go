@@ -7,6 +7,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"pairfob/internal/admin"
@@ -122,7 +123,7 @@ func runDaemon(store *state.Store, sock string) error {
 		return fmt.Errorf("engine: %w", err)
 	}
 	eng.Build = version
-	eng.Updater = newRemoteUpdater(store.Dir)
+	eng.Updater = newRemoteUpdater(store.Dir, daemonDownloadBase(plan.Origin, stored.URL))
 	if getenv("PAIRFOB_P2P", "1") != "0" {
 		eng.Direct = newWebRTCAcceptor()
 	}
@@ -178,6 +179,21 @@ func runDaemon(store *state.Store, sock string) error {
 		return nil
 	}
 	return err
+}
+
+// daemonDownloadBase resolves where the in-app update button downloads from.
+// An unusable base is dropped rather than fatal: updating is a convenience, and
+// refusing to boot over it would take the whole computer offline.
+func daemonDownloadBase(planOrigin, relayURL string) string {
+	origin := strings.TrimSpace(planOrigin)
+	if origin == "" {
+		origin = originFromRelayURL(relayURL)
+	}
+	base, err := resolveDownloadBase(origin)
+	if err != nil {
+		return ""
+	}
+	return base
 }
 
 func prepareRuntimeAvailability(rt runtime.Runtime, source string, autostart bool) {

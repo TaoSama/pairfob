@@ -113,7 +113,7 @@ func TestUpdateBootCompletePersistsOnlyMatchingRunningVersion(t *testing.T) {
 		t.Fatal(err)
 	}
 	done()
-	restored := newRemoteUpdater(dir)
+	restored := newRemoteUpdater(dir, defaultDownloadBase)
 	if restored.Status().Phase != "complete" {
 		t.Fatal(restored.Status())
 	}

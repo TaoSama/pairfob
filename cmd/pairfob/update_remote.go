@@ -32,9 +32,12 @@ type remoteUpdater struct {
 
 var releaseVersion = regexp.MustCompile(`^v?[0-9]+(?:[.-][0-9]+){1,3}$`)
 
-func newRemoteUpdater(dir string) *remoteUpdater {
+func newRemoteUpdater(dir, base string) *remoteUpdater {
 	dest, _ := resolvedExecutable()
-	u := &remoteUpdater{dir: dir, dest: dest, base: defaultDownloadBase, available: managedDaemon(), job: daemon.UpdateStatus{Phase: "idle"}}
+	if base == "" {
+		base = defaultDownloadBase
+	}
+	u := &remoteUpdater{dir: dir, dest: dest, base: base, available: managedDaemon(), job: daemon.UpdateStatus{Phase: "idle"}}
 	if data, err := os.ReadFile(u.jobPath()); err == nil {
 		_ = u.load(data)
 	}

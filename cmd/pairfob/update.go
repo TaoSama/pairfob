@@ -7,22 +7,79 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+
 	"os"
+	"pairfob/internal/state"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
 )
 
-func updateCommand(args []string) error {
-	if len(args) != 0 {
-		return errors.New("usage: pairfob update")
+// resolveDownloadBase picks where a build comes from.
+//
+// The explicit override wins, then the origin this computer is enrolled
+// against, then the public site. Preferring the enrolled origin is what makes
+// the in-app update button work on a self-hosted deployment: the daemon serves
+// its own builds, and pointing it at the public site would offer a release the
+// operator never published.
+// storedOriginForUpdate reports the origin this computer is enrolled against.
+//
+// Derived from the relay URL rather than stored separately: that URL is written
+// by enroll and is the one piece of state that already names the deployment
+// serving this daemon. A computer that has never enrolled reports nothing and
+// falls back to the public site.
+func storedOriginForUpdate() string {
+	dir, err := state.DefaultDir()
+	if err != nil {
+		return ""
 	}
+	store, err := state.Open(dir)
+	if err != nil {
+		return ""
+	}
+	relay, err := store.LoadRelay()
+	if err != nil || relay.URL == "" {
+		return ""
+	}
+	return originFromRelayURL(relay.URL)
+}
+
+// originFromRelayURL turns wss://host/v2/ws?... into https://host.
+func originFromRelayURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil || u.Host == "" {
+		return ""
+	}
+	switch u.Scheme {
+	case "wss", "https":
+		return "https://" + u.Host
+	case "ws", "http":
+		return "http://" + u.Host
+	}
+	return ""
+}
+
+func resolveDownloadBase(origin string) (string, error) {
 	base := strings.TrimRight(strings.TrimSpace(os.Getenv("PAIRFOB_DOWNLOAD_BASE")), "/")
+	if base == "" && strings.TrimSpace(origin) != "" {
+		base = strings.TrimRight(strings.TrimSpace(origin), "/") + "/dl"
+	}
 	if base == "" {
 		base = defaultDownloadBase
 	}
 	if err := allowedDownloadBase(base); err != nil {
+		return "", err
+	}
+	return base, nil
+}
+
+func updateCommand(args []string) error {
+	if len(args) != 0 {
+		return errors.New("usage: pairfob update")
+	}
+	base, err := resolveDownloadBase(storedOriginForUpdate())
+	if err != nil {
 		return err
 	}
 	dest, err := resolvedExecutable()
