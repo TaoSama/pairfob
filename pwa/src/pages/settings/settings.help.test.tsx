@@ -120,14 +120,16 @@ describe("settings help copy (actual App)", () => {
       { title: "会话默认", help: true },
       { title: "通知", help: false },
       { title: "已配对设备", help: false },
+      { title: "账号", help: true },
       { title: "危险操作", help: false },
     ]);
-    expect(app.querySelectorAll(".set-help").length).toBe(5);
+    expect(app.querySelectorAll(".set-help").length).toBe(6);
     expect(app.textContent).not.toContain("会话内切换只记住当前会话");
     expect(app.textContent).not.toContain("默认平铺全部会话");
     expect(app.textContent).not.toContain("跟随浏览器会按系统语言切换");
     expect(app.textContent).not.toContain("概览环显示已报告窗口中最低的剩余比例");
     expect(app.textContent).not.toContain("当前电脑配置的账号额度，同一账号的多个会话共享");
+    expect(app.textContent).not.toContain("密码只在本机参与解密");
     expect(app.textContent).toContain("解除后，这台手机会立即断开并删除本地凭证");
     const dialog = openHelp("会话默认");
     expect(dialog.classList.contains("modal")).toBeTrue();
@@ -143,6 +145,11 @@ describe("settings help copy (actual App)", () => {
     expect(quotaHelp.textContent).toContain("概览环显示已报告窗口中最低的剩余比例");
     expect(app.textContent).not.toContain("概览环显示已报告窗口中最低的剩余比例");
     act(() => (quotaHelp.querySelector(".help-close") as HTMLButtonElement).click());
+    expect(document.querySelector("dialog.help")).toBeNull();
+    const accountHelp = openHelp("账号");
+    expect(accountHelp.textContent).toContain("密码只在本机参与解密");
+    expect(app.textContent).not.toContain("密码只在本机参与解密");
+    act(() => (accountHelp.querySelector(".help-close") as HTMLButtonElement).click());
     expect(document.querySelector("dialog.help")).toBeNull();
   });
 

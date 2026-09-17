@@ -31,6 +31,7 @@ import { ListGroupControl } from "../../features/dashboard/components/herd-contr
 import { BackBar, Button, EmptyState, Feedback, SetHeading, SetNavRow, SetRow } from "../../shared/ui/primitives";
 import { LanguageControl } from "../../features/settings/language";
 import { DaemonUpdate } from "../../features/settings/daemon-update-view";
+import { AccountSummary } from "../account/account-summary";
 import { InviteCodeSection } from "./invite-code-section";
 import { settingsNetworkHelp, settingsNetworkP2PFail, settingsNetworkPath } from "../../features/settings/model";
 
@@ -284,6 +285,7 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
       </div>
       {runtime.pushConfigError ? <Feedback value={{ text: runtime.pushConfigError, tone: "error" }} /> : null}
       <DevicesSection runtime={runtime} connected={connected} />
+      <AccountSummary />
       <InviteCodeSection />
       <SetHeading text={t("settings.danger")} />
       <div className="set-card">

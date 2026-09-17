@@ -208,9 +208,11 @@ const layers: LayerPolicy[] = [
     ],
   },
   {
+    // Settings composes two summaries it does not own — the agent quota and the
+    // account — so it reaches those page roots and nothing else outside itself.
     name: "pages/settings",
     root: "pages/settings",
-    allowedRoots: ["pages/settings/", "pages/quota/", "features/", "shared/", "lib/", "app/"],
+    allowedRoots: ["pages/settings/", "pages/quota/", "pages/account/", "features/", "shared/", "lib/", "app/"],
     allowedModules: [
       "compose-drafts", "viewport", "ui/react/chrome", "live", "state",
       "live-operations", "mutations",
