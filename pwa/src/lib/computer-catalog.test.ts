@@ -48,6 +48,14 @@ describe("computer catalog", () => {
     expect(computerTitle(pair("d_0123456789abcdefaaaa", { hostname: "  " }))).toBe("未命名电脑");
   });
 
+  test("resolves known SSH aliases for computers", () => {
+    expect(computerTitle(pair("d_e64cf84bee9b55c19a87", { hostname: "n37-080-152" }))).toBe("devbox");
+    expect(computerTitle(pair("d_a2a31b2efb50c89f4581", { hostname: "n199-199-240" }))).toBe("devsg");
+    expect(computerTitle(pair("d_c48b9a1b125dc814b4ce", { hostname: "n37-212-222" }))).toBe("devos");
+    expect(computerTitle(pair("d_dbfc16e899be94e4ebfa", { hostname: "n37-080-152" }))).toBe("devbox-prod");
+    expect(computerTitle(pair("d_unknown", { hostname: "Mac-mini" }))).toBe("macmini");
+  });
+
   test("only burns credentials that the daemon rejected", () => {
     expect(credentialIsBurned("revoked")).toBe(true);
     expect(credentialIsBurned("unpaired")).toBe(true);

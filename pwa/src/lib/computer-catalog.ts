@@ -10,6 +10,21 @@ const BURNED_CODES = new Set([
   "fp_mismatch",
 ]);
 
+const KNOWN_SSH_ALIASES: Record<string, string> = {
+  "n37-080-152": "devbox",
+  "n199-199-240": "devsg",
+  "n37-212-222": "devos",
+  "Mac-mini": "macmini",
+  "macmini": "macmini",
+};
+
+const DAEMON_SSH_ALIASES: Record<string, string> = {
+  "d_e64cf84bee9b55c19a87": "devbox",
+  "d_a2a31b2efb50c89f4581": "devsg",
+  "d_dbfc16e899be94e4ebfa": "devbox-prod",
+  "d_c48b9a1b125dc814b4ce": "devos",
+};
+
 export function credentialIsBurned(code: string | undefined): boolean {
   return typeof code === "string" && BURNED_CODES.has(code);
 }
@@ -17,15 +32,28 @@ export function credentialIsBurned(code: string | undefined): boolean {
 /**
  * What to call a machine in the interface.
  *
- * Only the hostname names a computer, because only the computer reports it. The
- * label is whatever the browser that paired it called itself, so using it meant
- * every machine paired from one browser carried that browser's name — five
- * computers all called "Mac", which is the opposite of what a list of computers
- * is for. A machine that has not yet reported a hostname is unnamed rather than
- * borrowing a name from the phone.
+ * Prefers standard SSH aliases when known (e.g. devbox, devsg, devos, macmini),
+ * followed by the computer's reported hostname.
  */
 export function computerTitle(pair: PairResult): string {
-  return pair.hostname?.trim() || t("computer.unnamed");
+  if (pair.daemonId && DAEMON_SSH_ALIASES[pair.daemonId]) {
+    return DAEMON_SSH_ALIASES[pair.daemonId];
+  }
+  const label = pair.label?.trim();
+  if (label && (label === "devbox" || label === "devsg" || label === "devos" || label === "devbox-prod" || label === "macmini")) {
+    return label;
+  }
+  const host = pair.hostname?.trim();
+  if (host) {
+    if (host === "n37-080-152") {
+      return label === "devbox-prod" ? "devbox-prod" : "devbox";
+    }
+    if (KNOWN_SSH_ALIASES[host]) {
+      return KNOWN_SSH_ALIASES[host];
+    }
+    return host;
+  }
+  return t("computer.unnamed");
 }
 
 export function pickResumeCredential(credentials: PairResult[], lastUsedDaemonId: string | null): PairResult | null {
