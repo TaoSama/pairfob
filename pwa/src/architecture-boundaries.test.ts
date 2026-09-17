@@ -168,7 +168,7 @@ const layers: LayerPolicy[] = [
   {
     name: "pages/connect",
     root: "pages/connect",
-    allowedRoots: ["pages/connect/", "features/", "shared/", "lib/", "app/"],
+    allowedRoots: ["pages/connect/", "pages/account/", "features/", "shared/", "lib/", "app/"],
     allowedModules: [
       "viewport", "ui/react/chrome", "live", "state", "compose-drafts",
     ],

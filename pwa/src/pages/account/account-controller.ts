@@ -183,6 +183,15 @@ export async function syncAccountVault(password: string | null): Promise<void> {
     setAccountSyncFailed(true);
   }
   const catalog = await loadCatalog(location.origin);
+  // A sealed vault with nothing to show is the second-device case: the session
+  // cookie outlived the wrapping key, so the account owns machines this phone
+  // cannot decrypt yet. Staying on the form asks for the passphrase that would
+  // open them; sending it to pairing would hide the only way to get them back.
+  if (accountVaultSealed() && !catalog.credentials.length) {
+    setAccountGate("entry");
+    commitView();
+    return;
+  }
   // A signed-in phone goes straight back to the machine it used last. With no
   // credential to resume there is nothing to list, so it lands on pairing
   // rather than on a page whose only content would be a button to leave it.

@@ -560,6 +560,7 @@ export const zh = {
   "connect.pairHint": "例如 7K3M-9H2P-WJ3K9M",
   "connect.pairTitle": "输入电脑显示的配对码",
   "connect.passwordSummary": "改用登录口令",
+  "connect.signIn": "已有账号？登录取回电脑",
   "connect.password": "登录口令",
   "connect.passwordHint": "你在电脑上设置的口令",
   "connect.passwordTitle": "输入你在电脑上设置的登录口令",

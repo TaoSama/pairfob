@@ -12,7 +12,7 @@ import type { ConnectNotice, ConnectViewModel } from "./model";
  */
 export function ConnectView({
   view, notice, language, formRef, onBack, onCancel, onScan, onPaste, onSubmit, onToggleManual, onCodeChange,
-  onTogglePassword, onPasswordChange, onPasswordLocChange, onPasswordVisible, onPasswordSubmit,
+  onTogglePassword, onPasswordChange, onPasswordLocChange, onPasswordVisible, onPasswordSubmit, onSignIn,
 }: {
   view: ConnectViewModel;
   notice: ConnectNotice | null;
@@ -24,6 +24,7 @@ export function ConnectView({
   onPaste: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onToggleManual: (open: boolean) => void;
+  onSignIn: () => void;
   onCodeChange: (code: string) => void;
   onTogglePassword: (open: boolean) => void;
   onPasswordChange: (password: string) => void;
@@ -89,6 +90,13 @@ export function ConnectView({
           </>
         )}
       </form>
+      {!view.busy && !view.adding ? (
+        <p className="connect-account">
+          <Button className="btn btn-ghost btn-small connect-sign-in" onClick={onSignIn}>
+            {t("connect.signIn")}
+          </Button>
+        </p>
+      ) : null}
       <p className="trust">{t("connect.trust")}</p>
       {!view.adding ? language : null}
     </div>

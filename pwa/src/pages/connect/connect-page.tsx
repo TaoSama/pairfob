@@ -10,6 +10,7 @@ import {
   setPasswordPairOpen, togglePairPasswordVisible, retirePairingWork,
 } from "../../features/pairing/actions";
 import { ConnectView } from "../../features/pairing/connect-view";
+import { openAccountGate } from "../account/account-controller";
 import { connectViewModel } from "../../features/pairing/model";
 import { claimPairingPage, releasePairingPage } from "../../features/pairing/work";
 import { LanguageSelect } from "../../features/settings/language";
@@ -103,6 +104,7 @@ export function ConnectScreen() {
         event.preventDefault();
         void beginPasswordPairing(view.passwordDraft, view.passwordLocDraft);
       }}
+      onSignIn={() => void openAccountGate()}
     />
   );
 }

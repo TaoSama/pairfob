@@ -557,6 +557,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "connect.pairHint": "e.g. 7K3M-9H2P-WJ3K9M",
   "connect.pairTitle": "Type the pairing code shown on the computer",
   "connect.passwordSummary": "Use the login passphrase instead",
+  "connect.signIn": "Have an account? Sign in to get your computers",
   "connect.password": "Login passphrase",
   "connect.passwordHint": "The passphrase you set on the computer",
   "connect.passwordTitle": "Type the passphrase you set on the computer",
