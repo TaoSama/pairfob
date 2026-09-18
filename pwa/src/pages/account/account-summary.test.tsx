@@ -78,6 +78,20 @@ describe("the account card", () => {
     expect(notice?.className).toContain("notice-error");
   });
 
+  test("the same outcome twice repaints rather than going stale", () => {
+    const card = render();
+    act(() => { setAccountSyncOutcome("failed", "conflict"); });
+    expect(card.querySelector(".notice")?.textContent).toBe(t("settings.accountSyncConflict"));
+    // Two presses that fail the same way are two answers. The text is identical,
+    // so what must not happen is the second one being dropped as a no-op update.
+    act(() => { setAccountSyncOutcome("failed", "conflict"); });
+    expect(card.querySelector(".notice")?.textContent).toBe(t("settings.accountSyncConflict"));
+    // A later success must replace it rather than sit alongside it.
+    act(() => { setAccountSyncOutcome("ok"); });
+    expect(card.querySelectorAll(".notice").length).toBe(1);
+    expect(card.querySelector(".notice")?.textContent).toBe(t("settings.accountSynced"));
+  });
+
   test("a failure carries the cause the code named", () => {
     const card = render();
     act(() => { setAccountSyncOutcome("failed", "conflict"); });

@@ -181,20 +181,25 @@ export async function syncAccountVault(password: string | null): Promise<void> {
     commitView();
     return;
   }
+  // Busy spans the whole press, not just the network half: reading the catalogue
+  // and choosing the screen are still the sync working, and releasing the button
+  // before then would invite a second press into the middle of this one.
   setAccountBusy(true);
-  let signedIn: boolean;
   try {
-    signedIn = await reconcileAccountVault(password);
+    await syncAndLand(password);
   } finally {
     setAccountBusy(false);
+    commitView();
   }
+}
+
+/** The body of a sync: reconcile, then land on the screen the result implies. */
+async function syncAndLand(password: string | null): Promise<void> {
+  const signedIn = await reconcileAccountVault(password);
   // The reconcile retired the session: the form is already up and choosing a
   // screen from a catalogue this account can no longer reach would take it down
   // again.
-  if (!signedIn) {
-    commitView();
-    return;
-  }
+  if (!signedIn) return;
   let catalog;
   try {
     catalog = await loadCatalog(location.origin);
@@ -203,7 +208,6 @@ export async function syncAccountVault(password: string | null): Promise<void> {
     // there is no screen to choose, so the sync is reported rather than escaping
     // as an unhandled rejection that shows the person nothing.
     setAccountSyncOutcome("failed", codeOf(error));
-    commitView();
     return;
   }
   // A sealed vault with nothing to show is the second-device case: the session
@@ -212,7 +216,6 @@ export async function syncAccountVault(password: string | null): Promise<void> {
   // open them; sending it to pairing would hide the only way to get them back.
   if (accountVaultSealed() && !catalog.credentials.length) {
     setAccountGate("entry");
-    commitView();
     return;
   }
   // A signed-in phone goes straight back to the machine it used last. With no
@@ -225,7 +228,6 @@ export async function syncAccountVault(password: string | null): Promise<void> {
   } else {
     beginAddComputer();
   }
-  commitView();
 }
 
 /**
