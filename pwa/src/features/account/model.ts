@@ -47,6 +47,8 @@ export type AccountEntryInput = {
   busy: boolean;
   /** The last failure's protocol code, or null. */
   errorCode: string | null;
+  /** Attempts left before that failure becomes a lockout, when the origin said. */
+  errorRemaining?: number | null;
 };
 
 export type AccountField = "serviceToken" | "username" | "password" | "confirm" | "inviteCode";
@@ -68,6 +70,8 @@ export type AccountEntryModel = {
   busy: boolean;
   /** A copy code for the whole form's failure, or null. Distinct from per-field problems. */
   notice: string | null;
+  /** The `{count}` the notice needs, or null when its copy takes no number. */
+  noticeCount: number | null;
   /**
    * Whether the person may switch to the invite form. Bootstrap has no account to
    * sign in to, and a signed-in phone has nothing to switch to.
@@ -114,9 +118,29 @@ const LOCKOUTS: Partial<Record<AccountStep, string>> = {
   login: "account.error.lockedOutLogin",
 };
 
-function noticeFor(errorCode: string | null, current: AccountStep): string | null {
+const BAD_CREDENTIALS_REMAINING = "account.error.badCredentialsRemaining";
+
+/**
+ * When a wrong password starts naming the number of tries left.
+ *
+ * Counting down from the first mistake would train people to ignore the line,
+ * and the number only becomes actionable near the end — which is also the last
+ * moment someone can choose to fetch the right password instead of spending the
+ * hour locked out.
+ *
+ * Zero is not a warning, it is a lockout: the strike that spends the last try
+ * locks the account, so "0 attempts left" would offer a try that no longer
+ * exists. That refusal falls through to the plain wrong-password line, and the
+ * next request answers `locked_out` and gets the lockout copy.
+ */
+const REMAINING_WARN_AT = 2;
+
+function noticeFor(errorCode: string | null, current: AccountStep, remaining: number | null): string | null {
   if (!errorCode) return null;
   if (errorCode === "locked_out") return LOCKOUTS[current] ?? "account.error.lockedOut";
+  if (errorCode === "bad_credentials" && remaining !== null && remaining > 0 && remaining <= REMAINING_WARN_AT) {
+    return BAD_CREDENTIALS_REMAINING;
+  }
   return NOTICES[errorCode] ?? "account.error.unknown";
 }
 
@@ -156,13 +180,18 @@ export function accountEntryModel(input: AccountEntryInput): AccountEntryModel {
     return { field, value: input.draft[field], problem: touched.has(field) ? problem : null };
   });
   const complete = collected.every((field) => problemOf(field, input.draft) === null);
+  const remaining = input.errorRemaining ?? null;
+  const notice = noticeFor(input.errorCode, current, remaining);
   return {
     step: current,
     user: input.state?.user ?? null,
     fields,
     canSubmit: complete && !input.busy && collected.length > 0,
     busy: input.busy,
-    notice: noticeFor(input.errorCode, current),
+    notice,
+    // Only the copy that has a slot gets the number, so a notice chosen for some
+    // other reason cannot render a count left over from an earlier refusal.
+    noticeCount: notice === BAD_CREDENTIALS_REMAINING ? remaining : null,
     canOfferRegister: current === "login" || current === "register",
   };
 }

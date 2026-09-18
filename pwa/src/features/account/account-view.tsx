@@ -60,7 +60,14 @@ export function AccountEntryView({
       <Brand />
       <h1 className="prelude-title">{t(`account.title.${form}` as CopyKey)}</h1>
       <p className="lede">{t(`account.lede.${form}` as CopyKey)}</p>
-      {model.notice ? <Feedback value={{ text: t(model.notice as CopyKey), tone: "error" }} /> : null}
+      {model.notice ? (
+        <Feedback
+          value={{
+            text: t(model.notice as CopyKey, model.noticeCount === null ? undefined : { count: model.noticeCount }),
+            tone: "error",
+          }}
+        />
+      ) : null}
       <form className="account-form" noValidate aria-busy={model.busy} onSubmit={onSubmit}>
         {form === "bootstrap" ? (
           <div className="account-fixed-user">
