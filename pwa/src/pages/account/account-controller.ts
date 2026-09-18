@@ -20,10 +20,12 @@ import {
   accountVaultSealed,
   accountWrapKey,
   adoptWrapKey,
+  clearAccountSession,
   ownedDaemonIds,
+  setAccountBusy,
   setAccountError,
   setAccountGate,
-  setAccountSyncFailed,
+  setAccountSyncOutcome,
   setAccountWantsRegister,
   signedInAccount,
 } from "../../features/account/account-store";
@@ -170,29 +172,50 @@ export async function submitAccountEntry(submission: AccountSubmission): Promise
  * passphrase rather than having its stored credentials replaced.
  */
 export async function syncAccountVault(password: string | null): Promise<void> {
-  if (!signedInAccount()) return;
-  setAccountSyncFailed(false);
-  try {
-    const local = await localCredentials();
-    const merged = await syncAccountDevices(password, local);
-    await adoptCredentials(merged, local);
-    // The merge is published rather than compared first: this layer cannot see
-    // what the vault held before `syncAccountDevices` opened it, and a phone
-    // that paired a machine while signed out is exactly the case worth carrying
-    // up. The write is a compare-and-set, so an unchanged list costs one round
-    // trip and cannot clobber a concurrent edit.
-    if (merged.length && !accountVaultSealed()) await publishCredentials(merged);
-  } catch {
-    setAccountSyncFailed(true);
+  // A press that arrives after the session has gone must not be swallowed. The
+  // component still shows the signed-in branch, so returning in silence is
+  // indistinguishable from a dead button; reopening the form is both the honest
+  // answer and the only one that leads anywhere.
+  if (!signedInAccount()) {
+    setAccountGate("entry");
+    commitView();
+    return;
   }
-  const catalog = await loadCatalog(location.origin);
+  // Busy spans the whole press, not just the network half: reading the catalogue
+  // and choosing the screen are still the sync working, and releasing the button
+  // before then would invite a second press into the middle of this one.
+  setAccountBusy(true);
+  try {
+    await syncAndLand(password);
+  } finally {
+    setAccountBusy(false);
+    commitView();
+  }
+}
+
+/** The body of a sync: reconcile, then land on the screen the result implies. */
+async function syncAndLand(password: string | null): Promise<void> {
+  const signedIn = await reconcileAccountVault(password);
+  // The reconcile retired the session: the form is already up and choosing a
+  // screen from a catalogue this account can no longer reach would take it down
+  // again.
+  if (!signedIn) return;
+  let catalog;
+  try {
+    catalog = await loadCatalog(location.origin);
+  } catch (error) {
+    // The catalogue is this function's only view of what to resume. Without it
+    // there is no screen to choose, so the sync is reported rather than escaping
+    // as an unhandled rejection that shows the person nothing.
+    setAccountSyncOutcome("failed", codeOf(error));
+    return;
+  }
   // A sealed vault with nothing to show is the second-device case: the session
   // cookie outlived the wrapping key, so the account owns machines this phone
   // cannot decrypt yet. Staying on the form asks for the passphrase that would
   // open them; sending it to pairing would hide the only way to get them back.
   if (accountVaultSealed() && !catalog.credentials.length) {
     setAccountGate("entry");
-    commitView();
     return;
   }
   // A signed-in phone goes straight back to the machine it used last. With no
@@ -205,7 +228,52 @@ export async function syncAccountVault(password: string | null): Promise<void> {
   } else {
     beginAddComputer();
   }
-  commitView();
+}
+
+/**
+ * The reconcile half of a sync: merge both directions and name the outcome.
+ *
+ * Split from the caller so navigation and reporting stay separable. Every exit
+ * path sets an outcome, which is what turns the button from silent into
+ * answerable — including the successful no-change case, which previously left
+ * the screen byte-identical and read as a dead press.
+ */
+async function reconcileAccountVault(password: string | null): Promise<boolean> {
+  try {
+    const local = await localCredentials();
+    const merged = await syncAccountDevices(password, local);
+    await adoptCredentials(merged, local);
+    // A vault this phone cannot open is not a failure and must not be written
+    // to: minting a fresh key over it is a successful compare-and-set that
+    // destroys a blob nobody holds the plaintext for. It is reported on its own
+    // terms because the action that resolves it is a passphrase, not a retry.
+    if (accountVaultSealed()) {
+      setAccountSyncOutcome("sealed");
+      return true;
+    }
+    // The merge is published rather than compared first: this layer cannot see
+    // what the vault held before `syncAccountDevices` opened it, and a phone
+    // that paired a machine while signed out is exactly the case worth carrying
+    // up. The write is a compare-and-set, so an unchanged list costs one round
+    // trip and cannot clobber a concurrent edit. An empty merge writes nothing:
+    // there is no credential to carry up, and minting an empty row would spend a
+    // write to say so.
+    if (merged.length) await publishCredentials(merged);
+    setAccountSyncOutcome("ok");
+    return true;
+  } catch (error) {
+    const code = codeOf(error);
+    // An expired cookie cannot be retried into working, so it is not offered as
+    // a retry. Returning to the form is the step that resolves it, which is what
+    // boot already does when the origin declines to recognise this browser.
+    if (code === "unauthenticated") {
+      clearAccountSession();
+      setAccountGate("entry");
+      return false;
+    }
+    setAccountSyncOutcome("failed", code);
+    return true;
+  }
 }
 
 /**
@@ -271,8 +339,8 @@ export async function claimPairedDevice(daemonId: string, label: string | null):
     if (!accountVaultSealed()) await publishCredentials(await localCredentials());
     commitView();
     return true;
-  } catch {
-    setAccountSyncFailed(true);
+  } catch (error) {
+    setAccountSyncOutcome("failed", codeOf(error));
     commitView();
     return bound;
   }

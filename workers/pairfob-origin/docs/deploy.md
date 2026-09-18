@@ -123,8 +123,15 @@ export PAIRFOB_D1_DATABASE_ID=<uuid>          # also in `wrangler d1 list`
 # 4. Build and pack the assets into public-dist. pack-origin-assets.sh also
 #    runs the VitePress build for /doc, and refuses to run until
 #    pwa/dist/index.html exists.
+#
+#    PAIRFOB_PACK_DL=1 is what copies dist/dl into public-dist, and the pack
+#    starts by removing public-dist outright. Omitting it therefore ships an
+#    Assets bundle with no /dl at all: /dl/VERSION 404s, so the phone's
+#    "check for updates" reports a failed check and `pairfob update` and
+#    install.sh cannot resolve a version either. Run scripts/release.sh first
+#    (or keep an existing dist/dl) so there is something to copy.
 (cd ../../pwa && bun install && bun run build)
-../../scripts/pack-origin-assets.sh
+PAIRFOB_PACK_DL=1 ../../scripts/pack-origin-assets.sh
 
 # 5. Apply the eleven ordered migrations against the remote database.
 #    On an instance with real enrollments, export first — the migrations are
@@ -282,27 +289,38 @@ re-upload and re-propagate the assets.
 
 ## What is unverified here
 
-This document was written without a Cloudflare account attached, so the remote
-half of it is read from code rather than observed:
+This section was written before any deploy had been performed. Since then the
+runbook has been executed against the `TaoSama` account and `pair.taoai.site`,
+so the items below are no longer all open. Observed on that deploy:
+
+- The deploy itself, with `PAIRFOB_D1_DATABASE_ID` read from `wrangler d1 list`
+  and `CLOUDFLARE_API_TOKEN` exported: the Worker uploaded, the custom domain
+  `pair.taoai.site` served, and all three secrets were already present via
+  `wrangler secret list`.
+- `custom_domain` does resolve and auto-created the record: `/v2/health`,
+  `/api/config` and `/v2/account/state` all answer 200 on `pair.taoai.site`.
+- A token from the "Edit Cloudflare Workers" template is sufficient for a
+  deploy that uploads Assets.
+- `/dl` is served from Assets once packed with `PAIRFOB_PACK_DL=1`:
+  `/dl/VERSION` returns the version with `cache-control: no-store`, and a
+  downloaded `pairfob-linux-amd64` matched its `SHA256SUMS` entry byte for byte.
+- From the devbox, every one of these calls needs the proxy
+  (`https_proxy=http://127.0.0.1:23456`); without it they hang to an SSL
+  timeout rather than failing fast.
+
+Still unobserved, read from code only:
 
 - Everything about `/v2/enroll`, the grant tables, and the caps is read from
   `src/enroll.ts`, `src/d1.ts`, `src/constants.ts`, and `migrations/`. No enroll
   has been run against a deployed Worker.
-- The deploy, migration, and secret commands have not been executed. Only
-  `wrangler deploy --dry-run` was run, which resolves bindings and assets but
-  contacts no account and never validates `database_id`.
-- The claim that `custom_domain` auto-creates the DNS record is from
-  Cloudflare's documented behaviour, not from a deploy performed here.
-  `pair.taoai.site` currently resolves NXDOMAIN, measured against both Google
-  and Cloudflare DNS-over-HTTPS; `taoai.site` delegates to
-  `brett.ns.cloudflare.com` / `gracie.ns.cloudflare.com`, so the zone is on
-  Cloudflare and the custom-domain precondition holds.
+- The migration commands have not been executed against a database that had
+  real enrollments in it, and the forward-only 0003 drop has not been exercised
+  on live data.
 - The token permission table is assembled from Cloudflare's permissions
   reference plus its instruction to use the "Edit Cloudflare Workers" template.
-  No token was issued or exercised here, so the claim that this exact set is
-  *sufficient* — and specifically that Workers Assets uploads need
-  `Workers KV Storage : Edit` — is reasoned, not observed. If a deploy fails on
-  a permission, the template is the fallback.
+  The template was exercised and is sufficient; the narrower hand-built set —
+  specifically the claim that Workers Assets uploads need
+  `Workers KV Storage : Edit` — is still reasoned rather than observed.
 - `wrangler rollback`, `deployments list`, and `d1 export --remote --output`
   were confirmed to exist with these flags in wrangler 4.126.0 via `--help`;
   none of them were run against an account.

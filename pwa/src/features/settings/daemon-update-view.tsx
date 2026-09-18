@@ -87,8 +87,12 @@ function feedbackCopy(view: DaemonVersion): { text: string; tone?: "error" | "wa
   const checking = daemonReleaseCheckState() === "checking";
   const old = legacyBuild(view.build) || view.incompatible;
   if (checking) return { text: t("update.querying") };
-  if (view.error || daemonReleaseCheckState() === "error") return { text: t("update.checkFailed"), tone: "error" };
+  // A build this phone cannot order is reported before a failed release check.
+  // Reaching the release list would not change the answer for such a daemon --
+  // it still has to be updated by hand -- so naming the retry first would
+  // advertise the one action that cannot resolve it.
   if (old) return { text: t("update.needManual"), tone: "warn" };
+  if (view.error || daemonReleaseCheckState() === "error") return { text: t("update.checkFailed"), tone: "error" };
   if (needsDaemonUpdate(view)) return { text: t("update.newVersion", { version: view.latest }), tone: "warn" };
   if (daemonReleaseCheckState() === "success") {
     return { text: view.build === view.latest ? t("update.latest") : t("update.noAuto"), tone: "ok" };
