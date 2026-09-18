@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { handleAccount } from "./account.ts";
 import { mintInviteCode, normalizePassword, normalizeUsername } from "./account-auth.ts";
-import { AUTH_LOCKOUT_MS, INVITE_CODE_RE, ROLE_ADMIN, ROLE_MEMBER } from "./constants.ts";
+import {
+  AUTH_LOCKOUT_MS,
+  INVITE_CODE_RE,
+  LOGIN_LOCKOUT_STRIKES,
+  ROLE_ADMIN,
+  ROLE_MEMBER,
+} from "./constants.ts";
 import { resetLimits } from "./limits.ts";
 import { FakeD1 } from "./testutil/fake-d1.ts";
 import { testEnv } from "./testutil/make-room.ts";
@@ -165,19 +171,23 @@ describe("login and lockout", () => {
     expect(await bodyOf(res)).toMatchObject({ user: { username: "admin" } });
   });
 
-  test("three wrong passwords ban the account for an hour", async () => {
+  test("wrong passwords up to the login limit ban the account for an hour", async () => {
     const env = testEnv();
     await makeAdmin(env);
     const bad = { username: "admin", password: "not-the-password" };
 
-    for (let i = 0; i < 3; i++) {
+    for (let i = 0; i < LOGIN_LOCKOUT_STRIKES; i++) {
       const res = await handleAccount(
         accountReq("/v2/account/login", { method: "POST", body: bad }),
         env,
         1_100_000 + i,
       );
       expect(res?.status).toBe(401);
-      expect(await bodyOf(res)).toEqual({ ok: false, error: { code: "bad_credentials" } });
+      // Counted down from the login budget, so the last refusal offers nothing.
+      expect(await bodyOf(res)).toEqual({
+        ok: false,
+        error: { code: "bad_credentials", remaining: LOGIN_LOCKOUT_STRIKES - 1 - i },
+      });
     }
 
     const locked = await handleAccount(
@@ -251,7 +261,10 @@ describe("login and lockout", () => {
       1_300_000,
     );
     expect(res?.status).toBe(401);
-    expect(await bodyOf(res)).toEqual({ ok: false, error: { code: "bad_credentials" } });
+    expect(await bodyOf(res)).toEqual({
+      ok: false,
+      error: { code: "bad_credentials", remaining: LOGIN_LOCKOUT_STRIKES - 1 },
+    });
   });
 
   test("logout drops the session and clears the cookie", async () => {

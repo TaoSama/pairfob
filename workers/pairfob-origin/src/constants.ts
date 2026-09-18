@@ -53,6 +53,13 @@ export const PASSWORD_MAX = 128;
 export const DEVICE_LABEL_MAX = 64;
 export const AUTH_LOCKOUT_STRIKES = 3;
 export const AUTH_LOCKOUT_MS = 60 * 60 * 1000;
+
+/**
+ * Signing in gets more room than an invite code or a bootstrap token. Someone
+ * retyping a password they already own is not a brute-force source, while a
+ * wrong invite code or service token can only have been guessed.
+ */
+export const LOGIN_LOCKOUT_STRIKES = 5;
 export const INVITE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 export const INVITE_CODE_LEN = 4;
 

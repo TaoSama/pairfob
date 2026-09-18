@@ -58,6 +58,12 @@ export type AccountRecord = {
   gate: AccountGate;
   /** The last account failure's protocol code, shown by the form until the next attempt. */
   errorCode: string | null;
+  /**
+   * Attempts left before the refusal that just happened becomes a lockout, or
+   * null when the origin did not say. Only ever as fresh as `errorCode`: the two
+   * are written together so the form cannot pair a count with a later failure.
+   */
+  errorRemaining: number | null;
   /** The person asked for the invite form rather than the sign-in one. */
   wantsRegister: boolean;
   /** A device sync failed after sign-in; the list says so instead of looking empty. */
@@ -78,6 +84,7 @@ const accountDomain = createDomain<AccountRecord, "wrapKey" | "vaultKey">("accou
   busy: false,
   gate: "off",
   errorCode: null,
+  errorRemaining: null,
   wantsRegister: false,
   syncFailed: false,
   wrapKey: null,
@@ -126,6 +133,7 @@ export function setAccountSession(account: SignedInAccount, wrapKey: Uint8Array)
     // half-finished switch to the invite form is not what the next sign-out
     // should reopen on.
     record.errorCode = null;
+    record.errorRemaining = null;
     record.wantsRegister = false;
     record.syncFailed = false;
   });
@@ -156,6 +164,7 @@ export function clearAccountSession(): void {
     record.wrapKey = null;
     record.vaultKey = null;
     record.errorCode = null;
+    record.errorRemaining = null;
     record.wantsRegister = false;
     record.syncFailed = false;
     if (record.gate !== "off") record.gate = "entry";
@@ -201,11 +210,19 @@ export function setAccountGate(gate: AccountGate): void {
   });
 }
 
-/** The failure the form should be explaining, or null once a new attempt starts. */
-export function setAccountError(errorCode: string | null): void {
-  if (read().errorCode === errorCode) return;
+/**
+ * The failure the form should be explaining, or null once a new attempt starts.
+ *
+ * `remaining` defaults to none, so a caller that only knows the code clears a
+ * count left by the previous refusal rather than letting it outlive the attempt
+ * it described.
+ */
+export function setAccountError(errorCode: string | null, remaining: number | null = null): void {
+  const current = read();
+  if (current.errorCode === errorCode && current.errorRemaining === remaining) return;
   write((record) => {
     record.errorCode = errorCode;
+    record.errorRemaining = remaining;
   });
 }
 
@@ -216,6 +233,7 @@ export function setAccountWantsRegister(wantsRegister: boolean): void {
     // The two forms refuse for different reasons and a stale one would be read
     // as a verdict on the form now showing.
     record.errorCode = null;
+    record.errorRemaining = null;
   });
 }
 

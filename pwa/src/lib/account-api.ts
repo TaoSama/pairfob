@@ -177,8 +177,17 @@ async function post(
   );
 }
 
+/**
+ * The error a refused account call should throw.
+ *
+ * The origin's error object rides along unread. Several routes attach a number
+ * the person needs to be told — how many sign-in attempts are left before the
+ * hour-long lockout, which vault version won a conflict — and those are lost if
+ * only the code survives the throw.
+ */
 function fail(status: number, body: unknown): ProtocolError {
-  return new ProtocolError(errorCode(body) || statusCode(status));
+  const detail = record(record(body)?.error);
+  return new ProtocolError(errorCode(body) || statusCode(status), undefined, undefined, detail ?? undefined);
 }
 
 function signedIn(status: number, body: unknown): AccountUser {

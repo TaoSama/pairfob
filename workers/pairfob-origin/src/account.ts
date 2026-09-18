@@ -4,6 +4,7 @@ import {
   CLAIM_PROOF_RE,
   DAEMON_ID_RE,
   INVITE_GLOBAL_STRIKES,
+  LOGIN_LOCKOUT_STRIKES,
   PROTOCOL,
   ROLE_ADMIN,
   ROLE_MEMBER,
@@ -57,6 +58,7 @@ import {
   buildOf,
   clientIP,
   errorJson,
+  errorJsonWithDetail,
   isSameHostOrigin,
   jsonResponse,
   noStore,
@@ -220,7 +222,7 @@ async function login(
   // The strike is taken before the password is derived, so a burst of guesses
   // cannot all get past the limit while the first derivation is still running.
   if ((await lockedUntil(env.DB, ipKey, now)) > 0) return lockedOut(build, store);
-  const reserved = await reserveFailureBudget(env.DB, ipKey, now);
+  const reserved = await reserveFailureBudget(env.DB, ipKey, now, LOGIN_LOCKOUT_STRIKES);
   if (!reserved.granted) return lockedOut(build, store);
 
   const user = await getUserByName(env.DB, username);
@@ -228,9 +230,15 @@ async function login(
   // the response time does not separate "no such account" from "wrong password".
   const ok = await verifyPassword(user ? user.password_hash : await decoyHash(), password);
   if (!user || !ok) {
-    if (reserved.strikes >= AUTH_LOCKOUT_STRIKES) await lockSubject(env.DB, ipKey, now);
+    if (reserved.strikes >= LOGIN_LOCKOUT_STRIKES) await lockSubject(env.DB, ipKey, now);
     observeError(env, "forbidden");
-    return errorJson(build, 401, "bad_credentials", store);
+    return errorJsonWithDetail(
+      build,
+      401,
+      "bad_credentials",
+      { remaining: Math.max(0, LOGIN_LOCKOUT_STRIKES - reserved.strikes) },
+      store,
+    );
   }
 
   // Only the sign-in domain is forgiven. Clearing the invite domain here is what

@@ -58,6 +58,7 @@ export function AccountScreen() {
     touched,
     busy: account.busy,
     errorCode: account.errorCode,
+    errorRemaining: account.errorRemaining,
   });
 
   return (

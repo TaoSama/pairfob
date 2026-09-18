@@ -36,6 +36,17 @@ export function errorJson(build: string, status: number, code: string, extra?: R
   return jsonResponse(build, status, body, extra);
 }
 
+export function errorJsonWithDetail(
+  build: string,
+  status: number,
+  code: string,
+  detail: Record<string, unknown>,
+  extra?: Record<string, string>,
+): Response {
+  const body = { ok: false as const, error: { code, ...detail } };
+  return jsonResponse(build, status, body, extra);
+}
+
 export function unpairedJson(build: string, extra?: Record<string, string>): Response {
   return errorJson(build, 404, "unpaired", extra);
 }

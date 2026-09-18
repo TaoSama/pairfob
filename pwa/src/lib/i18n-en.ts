@@ -756,6 +756,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "account.problem.confirmMismatch": "The two passwords do not match",
   "account.problem.inviteCode": "An invite code is four letters",
   "account.error.badCredentials": "That username or password is wrong",
+  "account.error.badCredentialsRemaining": "Wrong account or password — {count} attempts left",
   "account.error.badInvite": "That invite code is wrong. Three wrong tries locks you out for an hour.",
   "account.error.lockedOut": "Too many wrong tries. Try again in an hour.",
   "account.error.lockedOutInvite": "Too many wrong invite codes. Try again in an hour. If you already have an account, signing in still works.",

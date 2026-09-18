@@ -130,7 +130,10 @@ export async function submitAccountEntry(submission: AccountSubmission): Promise
   try {
     await submitAccount(submission);
   } catch (error) {
-    setAccountError(codeOf(error));
+    // The count travels with the code rather than being fetched separately:
+    // it is only true of the attempt that just failed, and a second round trip
+    // to ask for it would report the budget after someone else's guess.
+    setAccountError(codeOf(error), remainingOf(error));
     commitView();
     return false;
   }
@@ -354,4 +357,17 @@ export function chooseRegisterForm(wantsRegister: boolean): void {
 
 function codeOf(error: unknown): string {
   return error instanceof ProtocolError ? error.code : "unknown";
+}
+
+/**
+ * How many attempts the origin says are left, or null when it did not say.
+ *
+ * Null is the ordinary answer and must stay distinguishable from zero: a
+ * refusal that carries no budget tells the person nothing about how close the
+ * lockout is, whereas zero means the next attempt is refused outright.
+ */
+function remainingOf(error: unknown): number | null {
+  if (!(error instanceof ProtocolError)) return null;
+  const remaining = error.detail?.remaining;
+  return typeof remaining === "number" && Number.isFinite(remaining) ? remaining : null;
 }

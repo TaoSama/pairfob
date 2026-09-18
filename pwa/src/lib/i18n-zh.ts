@@ -759,6 +759,7 @@ export const zh = {
   "account.problem.confirmMismatch": "两次输入的密码不一致",
   "account.problem.inviteCode": "邀请码是 4 位字母",
   "account.error.badCredentials": "账号或密码不对",
+  "account.error.badCredentialsRemaining": "账号或密码不对，还可以试 {count} 次",
   "account.error.badInvite": "邀请码不对。连续输错三次会封禁一小时。",
   "account.error.lockedOut": "错误次数过多，请一小时后再试",
   "account.error.lockedOutInvite": "邀请码错误次数过多，一小时后可再试。已经有账号的话，直接登录不受影响。",
