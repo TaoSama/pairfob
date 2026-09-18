@@ -675,6 +675,9 @@ describe("syncing the account on demand", () => {
     const sync = syncAccountVault(null);
     await until("the sync to report itself busy", () => accountStore.get().busy);
     expect(accountStore.get().busy).toBe(true);
+    // A disabled attribute is not perceivable on a phone: the only styling for it
+    // is a cursor rule, so the flag has to drive a label the person can read.
+    expect(t("settings.accountSyncing")).not.toBe(t("settings.accountSync"));
 
     release!();
     await act(async () => { await sync; });

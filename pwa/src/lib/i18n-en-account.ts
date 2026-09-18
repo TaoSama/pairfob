@@ -47,6 +47,7 @@ export const enAccount = {
   "settings.accountSignIn": "Sign in",
   "settings.accountSignOut": "Sign out",
   "settings.accountSync": "Sync now",
+  "settings.accountSyncing": "Syncing…",
   "settings.accountSyncFailed": "Sync failed. Try again.",
   "settings.accountSynced": "Synced",
   "settings.accountSyncSealed": "This phone cannot open the account vault. Sign in with your passphrase to get the computers paired on your other phones.",

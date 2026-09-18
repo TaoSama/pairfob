@@ -47,6 +47,7 @@ export const zhAccount = {
   "settings.accountSignIn": "登录",
   "settings.accountSignOut": "退出登录",
   "settings.accountSync": "立即同步",
+  "settings.accountSyncing": "正在同步…",
   "settings.accountSyncFailed": "同步失败，请重试",
   "settings.accountSynced": "已同步",
   "settings.accountSyncSealed": "这台手机打不开账号里的保险箱，请重新登录并输入密码，才能取回其他手机配对的电脑。",

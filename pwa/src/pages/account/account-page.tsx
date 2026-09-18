@@ -82,6 +82,11 @@ export function AccountScreen() {
             setDraft(EMPTY_DRAFT);
             setTouched([]);
           }
+        }).catch(() => {
+          // The controller reports every failure it can name through the domain,
+          // so there is nothing to add here. The handler exists so a contract
+          // violation below it becomes a no-op on the form rather than an
+          // unhandled rejection that leaves the page silent.
         });
       }}
     />

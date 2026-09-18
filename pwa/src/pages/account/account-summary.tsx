@@ -28,8 +28,14 @@ export function AccountSummary() {
               <Button
                 className="btn btn-small account-sync"
                 disabled={account.busy}
-                onClick={() => void syncAccountVault(null)}
-              >{t("settings.accountSync")}</Button>
+                aria-busy={account.busy}
+                onClick={() => {
+                  // The controller names every failure it can through the domain;
+                  // this keeps a contract violation from becoming an unhandled
+                  // rejection with nothing on screen.
+                  void syncAccountVault(null).catch(() => undefined);
+                }}
+              >{t(account.busy ? "settings.accountSyncing" : "settings.accountSync")}</Button>
             </div>
             <div className="set-row set-row-stack">
               <Button

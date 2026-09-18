@@ -29,6 +29,7 @@ Options:
 
 Environment:
   PAIRFOB_D1_DATABASE_ID  Required. The D1 uuid from `wrangler d1 list`.
+  PAIRFOB_ALLOW_NO_DL     Deploy even though public-dist has no dl/ release tree.
 EOF
 }
 
@@ -72,6 +73,20 @@ fi
 
 if [[ ! -f "$ORIGIN_DIR/public-dist/index.html" ]]; then
   echo "deploy-origin.sh: missing public-dist; run scripts/pack-origin-assets.sh first" >&2
+  exit 1
+fi
+
+# The release tree is what /dl serves, and the pack copies it only under
+# PAIRFOB_PACK_DL=1 after removing public-dist outright. A deploy without it
+# succeeds and then serves no /dl at all: /dl/VERSION 404s, so the phone reports
+# a failed update check and `pairfob update` and install.sh cannot resolve a
+# version either. That is a silent outage, so refuse here instead.
+# PAIRFOB_ALLOW_NO_DL=1 is the deliberate opt-out for an origin that is not
+# meant to host binaries.
+if [[ "${PAIRFOB_ALLOW_NO_DL:-}" != "1" && ! -f "$ORIGIN_DIR/public-dist/dl/VERSION" ]]; then
+  echo "deploy-origin.sh: public-dist/dl/VERSION is missing, so this deploy would serve no /dl" >&2
+  echo "repack with: PAIRFOB_PACK_DL=1 ./scripts/pack-origin-assets.sh" >&2
+  echo "(build the release first with ./scripts/release.sh, or set PAIRFOB_ALLOW_NO_DL=1 to deploy without binaries)" >&2
   exit 1
 fi
 
