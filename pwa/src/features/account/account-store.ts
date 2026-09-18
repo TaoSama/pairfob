@@ -66,11 +66,33 @@ export type AccountRecord = {
   errorRemaining: number | null;
   /** The person asked for the invite form rather than the sign-in one. */
   wantsRegister: boolean;
-  /** A device sync failed after sign-in; the list says so instead of looking empty. */
-  syncFailed: boolean;
+  /**
+   * How the last vault sync ended, and a counter that advances on every attempt.
+   *
+   * A boolean could only say "failed", which left a successful sync publishing
+   * nothing at all: the person pressed 立即同步 and the screen was byte-identical
+   * either way. The outcome names the three answers worth telling apart, and
+   * `syncSeq` makes a repeat of the same answer a real change so pressing the
+   * button twice is visibly acknowledged both times.
+   *
+   * `code` carries the protocol code behind a failure, so an expired session or
+   * a losing compare-and-set is not reported as the one thing that cannot help.
+   */
+  syncOutcome: SyncOutcome;
+  syncCode: string | null;
+  syncSeq: number;
   wrapKey: Uint8Array | null;
   vaultKey: Uint8Array | null;
 };
+
+/**
+ * The result of a vault sync, as the account page has to render it.
+ *
+ * `sealed` is deliberately not folded into `failed`: nothing broke, the origin
+ * holds a vault this phone has no key for, and the action that resolves it is a
+ * passphrase rather than a retry.
+ */
+export type SyncOutcome = "idle" | "ok" | "sealed" | "failed";
 
 const accountDomain = createDomain<AccountRecord, "wrapKey" | "vaultKey">("account", {
   initialized: null,
@@ -86,7 +108,9 @@ const accountDomain = createDomain<AccountRecord, "wrapKey" | "vaultKey">("accou
   errorCode: null,
   errorRemaining: null,
   wantsRegister: false,
-  syncFailed: false,
+  syncOutcome: "idle",
+  syncCode: null,
+  syncSeq: 0,
   wrapKey: null,
   vaultKey: null,
 }, { opaque: ["wrapKey", "vaultKey"] });
@@ -135,7 +159,8 @@ export function setAccountSession(account: SignedInAccount, wrapKey: Uint8Array)
     record.errorCode = null;
     record.errorRemaining = null;
     record.wantsRegister = false;
-    record.syncFailed = false;
+    record.syncOutcome = "idle";
+    record.syncCode = null;
   });
 }
 
@@ -166,7 +191,8 @@ export function clearAccountSession(): void {
     record.errorCode = null;
     record.errorRemaining = null;
     record.wantsRegister = false;
-    record.syncFailed = false;
+    record.syncOutcome = "idle";
+    record.syncCode = null;
     if (record.gate !== "off") record.gate = "entry";
   });
 }
@@ -237,10 +263,19 @@ export function setAccountWantsRegister(wantsRegister: boolean): void {
   });
 }
 
-export function setAccountSyncFailed(failed: boolean): void {
-  if (read().syncFailed === failed) return;
+/**
+ * Publish how a sync ended.
+ *
+ * There is no early return on an unchanged outcome: two failures in a row are
+ * two answers to two presses, and swallowing the second would reproduce the
+ * silence this state exists to remove. `syncSeq` is what makes them distinct to
+ * a subscriber comparing snapshots.
+ */
+export function setAccountSyncOutcome(outcome: SyncOutcome, code: string | null = null): void {
   write((record) => {
-    record.syncFailed = failed;
+    record.syncOutcome = outcome;
+    record.syncCode = outcome === "failed" ? code : null;
+    record.syncSeq += 1;
   });
 }
 

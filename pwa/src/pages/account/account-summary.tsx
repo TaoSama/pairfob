@@ -2,6 +2,7 @@ import { t } from "../../lib/i18n";
 import { useAccount } from "../../features/account/hooks";
 import { openAccountGate, signOutOfAccount, syncAccountVault } from "./account-controller";
 import { Button, Feedback, SetHeading, SetRow } from "../../shared/ui/primitives";
+import { syncFeedback } from "./sync-feedback";
 
 /**
  * The account, from the one screen that is always reachable.
@@ -14,6 +15,7 @@ import { Button, Feedback, SetHeading, SetRow } from "../../shared/ui/primitives
 export function AccountSummary() {
   const account = useAccount();
   const signedIn = account.username !== null;
+  const feedback = syncFeedback(account);
   return (
     <>
       <SetHeading text={t("settings.account")} help={[t("settings.accountNote")]} />
@@ -21,7 +23,7 @@ export function AccountSummary() {
         {signedIn ? (
           <>
             <SetRow label={t("settings.accountSignedIn")} value={account.username ?? ""} />
-            {account.syncFailed ? <Feedback value={{ text: t("settings.accountSyncFailed"), tone: "error" }} /> : null}
+            {feedback ? <Feedback value={feedback} /> : null}
             <div className="set-row set-row-stack">
               <Button
                 className="btn btn-small account-sync"

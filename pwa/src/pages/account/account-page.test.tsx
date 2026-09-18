@@ -25,7 +25,7 @@ import {
   setAccountInitialized,
 } from "../../features/account/account-store";
 import { setLang, setLangPref, t } from "../../lib/i18n";
-import { resumeAccountAtBoot, signOutOfAccount, switchAccount } from "./account-controller";
+import { resumeAccountAtBoot, signOutOfAccount, switchAccount, syncAccountVault } from "./account-controller";
 
 /**
  * The account surface against the actual mounted App.
@@ -614,5 +614,152 @@ describe("pairing announces a machine to the account", () => {
     registerPairedDeviceClaimer((daemonId, label) => { claims.push([daemonId, label]); });
     notifyDevicePaired(DAEMON_A, "desk");
     expect(claims).toEqual([[DAEMON_A, "desk"]]);
+  });
+});
+
+/**
+ * Pressing 立即同步 and being told what happened.
+ *
+ * Every case here is one the button used to answer with an unchanged screen. The
+ * assertions are on the published outcome rather than on a rendered string,
+ * because the outcome is what the page has to have before any copy can appear;
+ * sync-feedback.test.ts owns the sentence each outcome resolves to.
+ */
+describe("syncing the account on demand", () => {
+  test("a successful sync is published rather than leaving the screen unchanged", async () => {
+    serveSignedIn();
+    act(() => { adoptAccountIdentity({ userId: ADMIN.user_id, username: ADMIN.username, role: "admin" }); });
+    await settle();
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+
+    expect(accountStore.get().syncOutcome).toBe("ok");
+    expect(accountStore.get().syncCode).toBeNull();
+  });
+
+  test("pressing again re-answers instead of going quiet on an unchanged outcome", async () => {
+    serveSignedIn();
+    act(() => { adoptAccountIdentity({ userId: ADMIN.user_id, username: ADMIN.username, role: "admin" }); });
+    await settle();
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+    const first = accountStore.get().syncSeq;
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+
+    // Same outcome twice is still two answers to two presses.
+    expect(accountStore.get().syncOutcome).toBe("ok");
+    expect(accountStore.get().syncSeq).toBeGreaterThan(first);
+  });
+
+  test("the button reports in flight so a slow sync does not look dead", async () => {
+    let release: (() => void) | null = null;
+    const holding = new Promise<void>((resolve) => { release = resolve; });
+    serve({
+      "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: ADMIN } }),
+      "GET /v2/account/devices": () => ({ json: { ok: true, devices: [] } }),
+      "GET /v2/account/vault": () => ({ status: 404, json: { ok: false, error: { code: "unbound" } } }),
+    });
+    act(() => { adoptAccountIdentity({ userId: ADMIN.user_id, username: ADMIN.username, role: "admin" }); });
+    await settle();
+
+    const slowFetch = globalThis.fetch;
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      if (String(input).includes("/v2/account/devices")) await holding;
+      return slowFetch(input, init);
+    }) as typeof fetch;
+
+    const sync = syncAccountVault(null);
+    await until("the sync to report itself busy", () => accountStore.get().busy);
+    expect(accountStore.get().busy).toBe(true);
+
+    release!();
+    await act(async () => { await sync; });
+    await settle();
+
+    // The flag is released whatever the answer was, or the button stays dead.
+    expect(accountStore.get().busy).toBe(false);
+    globalThis.fetch = slowFetch;
+  });
+
+  test("a vault this phone cannot open asks for the passphrase, not a retry", async () => {
+    // A real stored vault whose cost record this build cannot decode. That is the
+    // sealed case, and it is not an exception, which is exactly why it used to
+    // pass for an ordinary successful no-op.
+    serve({
+      "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: ADMIN } }),
+      "GET /v2/account/devices": () => ({
+        json: { ok: true, devices: [{ daemon_id: DAEMON_A, label: "desk", bound_at: 1, live: false }] },
+      }),
+      "GET /v2/account/vault": () => ({
+        json: {
+          ok: true,
+          vault: {
+            ciphertext: "AAAA", nonce: "AAAA", kdf: "not-a-kdf-record", version: 7, updated_at: 1,
+          },
+        },
+      }),
+    });
+    act(() => { adoptAccountIdentity({ userId: ADMIN.user_id, username: ADMIN.username, role: "admin" }); });
+    await settle();
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+
+    expect(accountStore.get().syncOutcome).toBe("sealed");
+    // Sealed must never publish: writing here is a winning compare-and-set over
+    // a blob whose plaintext nobody holds.
+    expect(seen.filter((call) => call.method === "PUT")).toEqual([]);
+  });
+
+  test("an expired session reopens the form instead of offering a hopeless retry", async () => {
+    serve({
+      "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: null } }),
+      "GET /v2/account/devices": () => ({ status: 401, json: { ok: false, error: { code: "unauthenticated" } } }),
+    });
+    act(() => { adoptAccountIdentity({ userId: ADMIN.user_id, username: ADMIN.username, role: "admin" }); });
+    await settle();
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+
+    expect(accountStore.get().username).toBeNull();
+    expect(accountStore.get().gate).toBe("entry");
+    // Not reported as a retryable sync failure: retrying cannot mint a session.
+    expect(accountStore.get().syncOutcome).not.toBe("failed");
+  });
+
+  test("a relay failure keeps the code so the message can be specific", async () => {
+    serve({
+      "GET /v2/account/state": () => ({ json: { ok: true, initialized: true, user: ADMIN } }),
+      "GET /v2/account/devices": () => ({ status: 429, json: { ok: false, error: { code: "rate_limited" } } }),
+    });
+    act(() => { adoptAccountIdentity({ userId: ADMIN.user_id, username: ADMIN.username, role: "admin" }); });
+    await settle();
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+
+    expect(accountStore.get().syncOutcome).toBe("failed");
+    expect(accountStore.get().syncCode).toBe("rate_limited");
+  });
+
+  test("a press with no session left says so instead of doing nothing at all", async () => {
+    serveSignedIn();
+    act(() => {
+      clearAccountSession();
+      // The signed-in branch can still be on screen when the identity is gone.
+      setAccountGate("off");
+    });
+    await settle();
+
+    await act(async () => { await syncAccountVault(null); });
+    await settle();
+
+    // Silence here is indistinguishable from a broken button.
+    expect(accountStore.get().gate).toBe("entry");
   });
 });
