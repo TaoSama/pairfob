@@ -4,7 +4,33 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PWA="$ROOT/pwa/dist"
 SITE="$ROOT/site"
-DEST="$ROOT/workers/pairfob-origin/public-dist"
+# The destination is overridable so that packing can be *verified* without
+# writing the tree that is about to be deployed. This script starts by removing
+# DEST outright and only restores dl/ under PAIRFOB_PACK_DL=1, so a plain pack
+# aimed at public-dist silently drops /dl -- which took the release check,
+# `pairfob update` and install.sh down once already. scripts/verify.sh therefore
+# points this at a scratch directory.
+#
+# `:-` and not `-`: an exported-but-empty override must fall back to the default
+# rather than leave DEST empty, because everything below joins onto it.
+DEST="${PAIRFOB_PACK_DEST:-$ROOT/workers/pairfob-origin/public-dist}"
+
+# Checked here, before the PWA precondition and long before the `rm -rf "$DEST"`
+# below: a destination that is wrong is only safe to reject while nothing has
+# been deleted yet.
+if [[ "$DEST" != /* ]]; then
+  echo "pack: PAIRFOB_PACK_DEST must be an absolute path: $DEST" >&2
+  exit 1
+fi
+if [[ "$DEST" == "/" || "$DEST" == "$ROOT" || "$DEST" == "${HOME:-}" ]]; then
+  echo "pack: refusing to pack into $DEST; it would delete more than this pack owns" >&2
+  exit 1
+fi
+if [[ -n "${PAIRFOB_PACK_DEST:-}" ]]; then
+  # An override left exported in a shell would otherwise redirect a production
+  # pack to a path wrangler never uploads, with no sign anything was wrong.
+  echo "pack: DEST=$DEST (PAIRFOB_PACK_DEST override)" >&2
+fi
 
 if [[ ! -f "$PWA/index.html" ]]; then
   echo "missing $PWA/index.html; run (cd pwa && bun run build)" >&2
