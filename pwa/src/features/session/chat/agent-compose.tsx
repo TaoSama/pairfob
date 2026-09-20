@@ -51,10 +51,19 @@ export function AgentCompose() {
     if (liveURLs.current.delete(url)) URL.revokeObjectURL(url);
   }
 
-  // Keep the strip honest with the draft: a thumbnail only earns its place while
-  // its marker is still in the text. This covers submit and view-reset (draft
-  // empties) and manual deletion of a single marker while other text remains.
+  function clearImages(): void {
+    setImages((current) => {
+      for (const image of current) releaseURL(image.url);
+      return current.length ? [] : current;
+    });
+  }
+
+  // Drop a thumbnail when the user deletes its marker from a non-empty draft.
+  // An empty draft is left alone: submit clears it transiently, and a failed
+  // send restores the markers — so the previews must survive that round trip.
+  // The empty case is settled by the submit lifecycle effect below.
   useEffect(() => {
+    if (draft === "") return;
     setImages((current) => {
       const kept = current.filter((image) => draft.includes(image.marker));
       if (kept.length === current.length) return current;
@@ -64,6 +73,13 @@ export function AgentCompose() {
       return kept;
     });
   }, [draft]);
+
+  // A prompt clears the draft, sends, then either leaves it empty (success) or
+  // restores the marker text (failure). Once the send settles (busy falls) with
+  // the draft still empty, the images are gone for good, so clear the strip.
+  useEffect(() => {
+    if (!busy && draft === "") clearImages();
+  }, [busy, draft]);
 
   // Last line of defense against leaked object URLs when the field unmounts.
   useEffect(() => () => {
@@ -84,7 +100,9 @@ export function AgentCompose() {
       const ordinal = nextImageOrdinal(field.value);
       const spliced = insertImageMarker(field.value, caret, ordinal);
       const fitted = fitOperationPrompt(spliced.text);
-      const marked = fitted.text.includes(spliced.marker);
+      // The 32 KiB fit can split the marker itself. A half marker helps no one:
+      // keep the prior draft and stop — later files would not fit either.
+      if (!fitted.text.includes(spliced.marker)) break;
       setComposeDraft(fitted.text);
       if (composeOwnerMoved(session, paneId, incarnation) || !field.isConnected) return;
       field.value = fitted.text;
@@ -93,12 +111,9 @@ export function AgentCompose() {
       field.setSelectionRange(caretAt, caretAt);
       setLimited(fitted.truncated);
       sizeChatCompose(field);
-      // A marker dropped by the 32 KiB fit gets no thumbnail — nothing references it.
-      if (marked) {
-        const url = URL.createObjectURL(file);
-        liveURLs.current.add(url);
-        added.push({ key: imageKey.current++, marker: spliced.marker, name: file.name, url });
-      }
+      const url = URL.createObjectURL(file);
+      liveURLs.current.add(url);
+      added.push({ key: imageKey.current++, marker: spliced.marker, name: file.name, url });
     }
     if (added.length) setImages((current) => [...current, ...added]);
     publishAgentChatUI();

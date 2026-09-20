@@ -188,3 +188,18 @@ test("manually deleting a marker drops its thumbnail without touching the rest",
   expect(revoked).toContain("blob:img/0");
   expect(revoked).not.toContain("blob:img/1");
 });
+
+test("a failed send keeps previews when the draft is restored", () => {
+  act(() => mount());
+  textarea().setSelectionRange(0, 0);
+  act(() => { setFiles(picker(), [imageFile("a.png")]); picker().dispatchEvent(new happy.window.Event("change", { bubbles: true })); });
+  const draft = textarea().value;
+  expect(thumbs().length).toBe(1);
+  // Submit empties the draft while the send is in flight (busy).
+  act(() => { setOperationBusy(true); setComposeDraft(""); });
+  expect(thumbs().length).toBe(1); // preview held across the round trip
+  // The send fails: the marker text is restored and busy clears.
+  act(() => { setComposeDraft(draft); setOperationBusy(false); });
+  expect(thumbs().length).toBe(1);
+  expect(revoked).not.toContain("blob:img/0");
+});
