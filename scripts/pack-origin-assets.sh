@@ -4,7 +4,51 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PWA="$ROOT/pwa/dist"
 SITE="$ROOT/site"
-DEST="$ROOT/workers/pairfob-origin/public-dist"
+# The destination is overridable so that packing can be *verified* without
+# writing the tree that is about to be deployed. This script starts by removing
+# DEST outright and only restores dl/ under PAIRFOB_PACK_DL=1, so a plain pack
+# aimed at public-dist silently drops /dl -- which took the release check,
+# `pairfob update` and install.sh down once already. scripts/verify.sh therefore
+# points this at a scratch directory.
+#
+# `:-` and not `-`: an exported-but-empty override must fall back to the default
+# rather than leave DEST empty, because everything below joins onto it.
+DEST="${PAIRFOB_PACK_DEST:-$ROOT/workers/pairfob-origin/public-dist}"
+
+# Checked here, before the PWA precondition and long before the `rm -rf "$DEST"`
+# below: a destination that is wrong is only safe to reject while nothing has
+# been deleted yet.
+#
+# The rule is an allowlist, not a list of forbidden paths. `rm -rf` is being
+# handed this value, so the question worth answering is "does the pack own
+# this?" rather than "is it one of the paths we thought to name" -- a denylist
+# admits /etc and every other directory nobody remembered.
+if [[ "$DEST" != /* ]]; then
+  echo "pack: PAIRFOB_PACK_DEST must be an absolute path: $DEST" >&2
+  exit 1
+fi
+# Resolve .. and symlinks before comparing, so a path that merely reads as if it
+# were inside the repo cannot escape it. The destination itself need not exist.
+dest_parent="$(cd "$(dirname "$DEST")" 2>/dev/null && pwd -P || true)"
+if [[ -z "$dest_parent" ]]; then
+  echo "pack: PAIRFOB_PACK_DEST parent directory does not exist: $(dirname "$DEST")" >&2
+  exit 1
+fi
+DEST="$dest_parent/$(basename "$DEST")"
+# Compare against a resolved ROOT too: on this project's dev machines HOME is a
+# symlink, so an unresolved ROOT would never prefix-match a resolved DEST and
+# every legitimate override would be rejected.
+root_real="$(cd "$ROOT" && pwd -P)"
+if [[ "$DEST" != "$root_real"/* || "$DEST" == "$root_real" ]]; then
+  echo "pack: refusing to pack into $DEST" >&2
+  echo "pack: PAIRFOB_PACK_DEST must name a directory inside $root_real; the pack deletes it outright" >&2
+  exit 1
+fi
+if [[ -n "${PAIRFOB_PACK_DEST:-}" ]]; then
+  # An override left exported in a shell would otherwise redirect a production
+  # pack to a path wrangler never uploads, with no sign anything was wrong.
+  echo "pack: DEST=$DEST (PAIRFOB_PACK_DEST override)" >&2
+fi
 
 if [[ ! -f "$PWA/index.html" ]]; then
   echo "missing $PWA/index.html; run (cd pwa && bun run build)" >&2

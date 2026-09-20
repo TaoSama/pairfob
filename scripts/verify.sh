@@ -41,9 +41,16 @@ bun test plugin/herdr/plugin.test.ts
   bun run build
 )
 
-"$ROOT/scripts/pack-origin-assets.sh"
-test -f "$ROOT/workers/pairfob-origin/public-dist/install.sh"
-test -f "$ROOT/workers/pairfob-origin/public-dist/doc/index.html"
+# Pack into scratch. Verifying that the pack works must not write the tree that
+# is about to be deployed: the pack removes its destination outright and only
+# restores the release binaries when asked to, so packing into public-dist here
+# would silently strip /dl from an already-correct deploy tree. Binaries stay
+# out of this pack, which keeps the Worker e2e small (release.sh says the same).
+PACK_DEST="$ROOT/.tmp/verify-public-dist"
+trap 'rm -rf "$PACK_DEST"' EXIT
+PAIRFOB_PACK_DEST="$PACK_DEST" "$ROOT/scripts/pack-origin-assets.sh"
+test -f "$PACK_DEST/install.sh"
+test -f "$PACK_DEST/doc/index.html"
 
 (
   cd workers/pairfob-origin

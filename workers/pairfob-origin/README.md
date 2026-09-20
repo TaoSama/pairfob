@@ -21,7 +21,7 @@ bun test e2e
 
 `bun run e2e:wrangler` runs workerd tests (`e2e/wrangler/`): HTTP plus enroll → HELLO → PAIR_OPEN loc → ticket consume. Config is `wrangler.e2e.jsonc` (`compatibility_date` ≤ 2026-08-22 for workerd). Local/prod `wrangler.jsonc` uses the same date. Miniflare is **not** a hibernation proof — PING zero-storage is asserted with a storage spy in `src/room/ping.test.ts`.
 
-`wrangler.jsonc` `assets.directory` is `./public-dist` (marketing site at `/`, PWA at `/pair`, installer at `/install.sh`). `run_worker_first` is true so `withSecurity` headers (CSP, frame-ancestors, `X-Pairfob-Build`) apply to those files, not only to `/v2` JSON. Pack after a PWA build: `../../scripts/pack-origin-assets.sh`. Desktop binaries from `../../scripts/release.sh` are included at `/dl/` only when packing with `PAIRFOB_PACK_DL=1`.
+`wrangler.jsonc` `assets.directory` is `./public-dist` (marketing site at `/`, PWA at `/pair`, installer at `/install.sh`). `run_worker_first` is true so `withSecurity` headers (CSP, frame-ancestors, `X-Pairfob-Build`) apply to those files, not only to `/v2` JSON. Pack after a PWA build: `../../scripts/pack-origin-assets.sh`. Desktop binaries from `../../scripts/release.sh` are included at `/dl/` only when packing with `PAIRFOB_PACK_DL=1`. `PAIRFOB_PACK_DEST=<abs dir>` packs somewhere else entirely; `scripts/verify.sh` uses it so validating the pack cannot strip `/dl` out of this tree.
 
 ## Config
 

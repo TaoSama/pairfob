@@ -130,6 +130,11 @@ export PAIRFOB_D1_DATABASE_ID=<uuid>          # also in `wrangler d1 list`
 #    "check for updates" reports a failed check and `pairfob update` and
 #    install.sh cannot resolve a version either. Run scripts/release.sh first
 #    (or keep an existing dist/dl) so there is something to copy.
+#
+#    scripts/verify.sh packs into .tmp/ via PAIRFOB_PACK_DEST rather than here,
+#    so running it before a deploy is safe. The other side of that: verify.sh no
+#    longer refreshes public-dist either, and nothing downstream detects stale
+#    assets, so run this step explicitly after any asset change.
 (cd ../../pwa && bun install && bun run build)
 PAIRFOB_PACK_DL=1 ../../scripts/pack-origin-assets.sh
 
