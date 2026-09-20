@@ -162,3 +162,29 @@ test("emptying the draft clears the strip and revokes remaining URLs", () => {
   expect(thumbs().length).toBe(0);
   expect(revoked).toContain("blob:img/0");
 });
+
+test("adding a second image keeps the first thumbnail's URL live", () => {
+  act(() => mount());
+  const field = textarea();
+  field.setSelectionRange(0, 0);
+  act(() => { setFiles(picker(), [imageFile("a.png")]); picker().dispatchEvent(new happy.window.Event("change", { bubbles: true })); });
+  field.setSelectionRange(field.value.length, field.value.length);
+  act(() => { setFiles(picker(), [imageFile("b.png")]); picker().dispatchEvent(new happy.window.Event("change", { bubbles: true })); });
+  expect(thumbs().length).toBe(2);
+  // The first image's URL must not be revoked while its thumbnail is still shown.
+  expect(revoked).not.toContain("blob:img/0");
+});
+
+test("manually deleting a marker drops its thumbnail without touching the rest", () => {
+  act(() => mount());
+  const field = textarea();
+  field.setSelectionRange(0, 0);
+  act(() => { setFiles(picker(), [imageFile("a.png"), imageFile("b.png")]); picker().dispatchEvent(new happy.window.Event("change", { bubbles: true })); });
+  expect(thumbs().length).toBe(2);
+  // The user erases the first marker but keeps the second and other text.
+  field.value = "[Image #2] tail";
+  act(() => field.dispatchEvent(new happy.window.Event("input", { bubbles: true })));
+  expect(thumbs().length).toBe(1);
+  expect(revoked).toContain("blob:img/0");
+  expect(revoked).not.toContain("blob:img/1");
+});

@@ -39,26 +39,37 @@ export function AgentCompose() {
   const [limited, setLimited] = useState(false);
   const [images, setImages] = useState<AttachedImage[]>([]);
   const imageKey = useRef(0);
+  // Mirrors the live preview URLs so the unmount cleanup can revoke whatever is
+  // still open without re-running (and prematurely revoking) on every change.
+  const liveURLs = useRef(new Set<string>());
   const allowed = canSend();
   const busy = operationBusy();
   const draft = useCompose().composeDraft;
   const selected = agentFromDashboardSnapshot(useDashboard(), useSession().paneId);
 
-  // The draft empties on submit (and on a view switch that resets compose). Once
-  // the markers are gone there is nothing for the thumbnails to reference, so
-  // release the preview URLs and clear the strip.
+  function releaseURL(url: string): void {
+    if (liveURLs.current.delete(url)) URL.revokeObjectURL(url);
+  }
+
+  // Keep the strip honest with the draft: a thumbnail only earns its place while
+  // its marker is still in the text. This covers submit and view-reset (draft
+  // empties) and manual deletion of a single marker while other text remains.
   useEffect(() => {
-    if (draft.trim() !== "") return;
     setImages((current) => {
-      for (const image of current) URL.revokeObjectURL(image.url);
-      return current.length ? [] : current;
+      const kept = current.filter((image) => draft.includes(image.marker));
+      if (kept.length === current.length) return current;
+      for (const image of current) {
+        if (!kept.includes(image)) releaseURL(image.url);
+      }
+      return kept;
     });
   }, [draft]);
 
   // Last line of defense against leaked object URLs when the field unmounts.
   useEffect(() => () => {
-    for (const image of images) URL.revokeObjectURL(image.url);
-  }, [images]);
+    for (const url of liveURLs.current) URL.revokeObjectURL(url);
+    liveURLs.current.clear();
+  }, []);
 
   function attachFiles(files: FileList | null): void {
     const field = input.current;
@@ -83,7 +94,11 @@ export function AgentCompose() {
       setLimited(fitted.truncated);
       sizeChatCompose(field);
       // A marker dropped by the 32 KiB fit gets no thumbnail — nothing references it.
-      if (marked) added.push({ key: imageKey.current++, marker: spliced.marker, name: file.name, url: URL.createObjectURL(file) });
+      if (marked) {
+        const url = URL.createObjectURL(file);
+        liveURLs.current.add(url);
+        added.push({ key: imageKey.current++, marker: spliced.marker, name: file.name, url });
+      }
     }
     if (added.length) setImages((current) => [...current, ...added]);
     publishAgentChatUI();
@@ -93,7 +108,7 @@ export function AgentCompose() {
   function removeImage(target: AttachedImage): void {
     const field = input.current;
     setImages((current) => current.filter((image) => image.key !== target.key));
-    URL.revokeObjectURL(target.url);
+    releaseURL(target.url);
     if (!field) return;
     const session = liveSession();
     const paneId = openPaneId();
@@ -171,7 +186,7 @@ export function AgentCompose() {
     <form className="dock-form" onSubmit={event => { event.preventDefault(); void submitAgentPrompt(); }}>
       <Button className="agent-add-image" aria-label={t("chat.addImage")} disabled={!allowed || busy}
         onClick={() => picker.current?.click()}>＋</Button>
-      <input ref={picker} type="file" accept="image/*" multiple hidden aria-hidden="true"
+      <input ref={picker} type="file" accept="image/*" multiple hidden
         onChange={event => { attachFiles(event.currentTarget.files); event.currentTarget.value = ""; }} />
       <textarea ref={input} rows={1} enterKeyHint="send" maxLength={OPERATION_INPUT_LIMITS.prompt}
         placeholder={t(allowed ? "chat.placeholder" : "chat.cantSend")} disabled={!allowed || busy} />
