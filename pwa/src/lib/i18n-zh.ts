@@ -708,6 +708,10 @@ export const zh = {
   "chat.copyReply": "复制回答",
   "chat.copyReplyAria": "复制这条 Agent 回答",
   "chat.copiedReply": "已复制回答",
+  "chat.addImage": "添加图片",
+  "chat.removeImage": "移除图片 {name}",
+  "chat.imageStrip": "已添加的图片",
+  "chat.imageAlt": "图片预览 {marker}",
 
   "ft.opening": "正在打开终端…",
   "ft.preparing": "正在准备终端组件并建立加密连接…",
