@@ -18,12 +18,30 @@ DEST="${PAIRFOB_PACK_DEST:-$ROOT/workers/pairfob-origin/public-dist}"
 # Checked here, before the PWA precondition and long before the `rm -rf "$DEST"`
 # below: a destination that is wrong is only safe to reject while nothing has
 # been deleted yet.
+#
+# The rule is an allowlist, not a list of forbidden paths. `rm -rf` is being
+# handed this value, so the question worth answering is "does the pack own
+# this?" rather than "is it one of the paths we thought to name" -- a denylist
+# admits /etc and every other directory nobody remembered.
 if [[ "$DEST" != /* ]]; then
   echo "pack: PAIRFOB_PACK_DEST must be an absolute path: $DEST" >&2
   exit 1
 fi
-if [[ "$DEST" == "/" || "$DEST" == "$ROOT" || "$DEST" == "${HOME:-}" ]]; then
-  echo "pack: refusing to pack into $DEST; it would delete more than this pack owns" >&2
+# Resolve .. and symlinks before comparing, so a path that merely reads as if it
+# were inside the repo cannot escape it. The destination itself need not exist.
+dest_parent="$(cd "$(dirname "$DEST")" 2>/dev/null && pwd -P || true)"
+if [[ -z "$dest_parent" ]]; then
+  echo "pack: PAIRFOB_PACK_DEST parent directory does not exist: $(dirname "$DEST")" >&2
+  exit 1
+fi
+DEST="$dest_parent/$(basename "$DEST")"
+# Compare against a resolved ROOT too: on this project's dev machines HOME is a
+# symlink, so an unresolved ROOT would never prefix-match a resolved DEST and
+# every legitimate override would be rejected.
+root_real="$(cd "$ROOT" && pwd -P)"
+if [[ "$DEST" != "$root_real"/* || "$DEST" == "$root_real" ]]; then
+  echo "pack: refusing to pack into $DEST" >&2
+  echo "pack: PAIRFOB_PACK_DEST must name a directory inside $root_real; the pack deletes it outright" >&2
   exit 1
 fi
 if [[ -n "${PAIRFOB_PACK_DEST:-}" ]]; then

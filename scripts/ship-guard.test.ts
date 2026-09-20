@@ -195,8 +195,14 @@ describe("the pack destination", () => {
     expect(proc.stderr.toString()).toContain("must be an absolute path");
   });
 
-  test("a destination that owns more than the pack is refused", () => {
-    for (const dest of ["/", process.env.HOME ?? "/root"]) {
+  test("a destination the pack does not own is refused", () => {
+    // An allowlist, not a denylist: `rm -rf` gets this value, so anything
+    // outside the repo is refused rather than only the paths someone thought to
+    // name. `..` and symlinks are resolved first, so a path that merely reads as
+    // if it were inside the tree cannot escape it.
+    const repoRoot = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+    const outside = ["/", "/etc", "/tmp", process.env.HOME ?? "/root", `${repoRoot}/../escape`, repoRoot];
+    for (const dest of outside) {
       const proc = Bun.spawnSync(["bash", packPath], {
         env: { ...process.env, PAIRFOB_PACK_DEST: dest },
         stdout: "pipe",
@@ -204,6 +210,29 @@ describe("the pack destination", () => {
       });
       expect(proc.exitCode ?? 0).not.toBe(0);
       expect(proc.stderr.toString()).toContain("refusing to pack into");
+    }
+  });
+
+  test("a destination inside the repo is accepted", () => {
+    // The guard must not be so strict that the scratch dir verify.sh relies on
+    // stops working -- including when HOME is a symlink, which is the case on
+    // the machines this is developed on.
+    const repoRoot = new URL("..", import.meta.url).pathname.replace(/\/$/, "");
+    const probe = `${repoRoot}/.tmp/guard-probe`;
+    try {
+      const proc = Bun.spawnSync(["bash", packPath], {
+        env: { ...process.env, PAIRFOB_PACK_DEST: probe },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      const stderr = proc.stderr.toString();
+      expect(stderr).not.toContain("refusing to pack into");
+      expect(stderr).not.toContain("must be an absolute path");
+      // It may still fail later for want of a PWA build; only the guard is under
+      // test here, and the guard runs before that precondition.
+      expect(stderr).toContain("PAIRFOB_PACK_DEST override");
+    } finally {
+      rmSync(probe, { recursive: true, force: true });
     }
   });
 
